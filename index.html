@@ -219,6 +219,7 @@ button.ck.fail:hover{background:var(--danger-soft);border-color:var(--danger)}
 .tbl td{padding:4px 5px;text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums;border-bottom:1px solid var(--line);white-space:nowrap}
 .tbl th:first-child,.tbl td:first-child{text-align:left;font-family:var(--font)}
 .rv-foot{margin:0;font-size:11px;color:var(--ink-3);line-height:1.6}
+.vtag.cross{color:var(--ink-3);border-color:var(--line-2)}
 .comp .st{width:8px;height:8px;border-radius:50%;flex:none}
 .st.fail{background:var(--danger)} .st.warn{background:var(--warn)} .st.pass{background:var(--ok)}
 .verdict{position:absolute;left:calc(var(--side-w) + var(--gut) * 2);top:72px;display:flex;align-items:center;gap:9px;padding:7px 14px 7px 12px;border-radius:999px;border:1px solid var(--line-2);background:var(--glass);cursor:pointer;font-size:12px;z-index:2;max-width:calc(100% - var(--side-w) - var(--gut) * 3);text-align:left}
@@ -446,7 +447,7 @@ button.ck.fail:hover{background:var(--danger-soft);border-color:var(--danger)}
             <div class="lay-in" id="rv-lay"></div>
             <div id="rv-lay-list"></div>
           </div>
-          <p class="rv-foot">기준: IEC 60502-1(2021) · 60502-2(2014) · IEC 60228. ‘원문 대조 필요’ 항목은 규격 원문으로 최종 확인.</p>
+          <p class="rv-foot" id="rv-foot"></p>
         </div>
       </div>
     </section>
@@ -1518,33 +1519,65 @@ new ResizeObserver(resize).observe(stageEl);
 /* =====================================================================
    6. IEC 60502-1 / 60502-2 규격 검토
    ===================================================================== */
-const CLASSES = {
-  '0.6/1':  {std:'IEC 60502-1', U:1,  Um:1.2,  lv:1, col:1, min:1.5, test:'3.5 kV · 5분'},
-  '1.8/3':  {std:'IEC 60502-1', U:3,  Um:3.6,  lv:1, col:2, min:10,  test:'6.5 kV · 5분'},
-  '3.6/6':  {std:'IEC 60502-2', U:6,  Um:7.2,  t:2.5, min:10, test:'12.5 kV · 5분'},
-  '6/10':   {std:'IEC 60502-2', U:10, Um:12,   t:3.4, min:16, test:'21 kV · 5분'},
-  '8.7/15': {std:'IEC 60502-2', U:15, Um:17.5, t:4.5, min:25, test:'30.5 kV · 5분'},
-  '12/20':  {std:'IEC 60502-2', U:20, Um:24,   t:5.5, min:35, test:'42 kV · 5분'},
-  '18/30':  {std:'IEC 60502-2', U:30, Um:36,   t:8.0, min:50, test:'63 kV · 5분'}
-};
-const IEC_SIZES = [1.5,2.5,4,6,10,16,25,35,50,70,95,120,150,185,240,300,400,500,630,800,1000,1200,1400,1600,1800,2000,2500];
-// IEC 60228 class 1·2 도체 20 °C 최대 직류저항 [연동(비도금), 알루미늄] Ω/km
-const R60228 = {1.5:[12.1,null],2.5:[7.41,null],4:[4.61,null],6:[3.08,null],10:[1.83,3.08],16:[1.15,1.91],25:[0.727,1.20],35:[0.524,0.868],
-  50:[0.387,0.641],70:[0.268,0.443],95:[0.193,0.320],120:[0.153,0.253],150:[0.124,0.206],185:[0.0991,0.164],240:[0.0754,0.125],300:[0.0601,0.100],
-  400:[0.0470,0.0778],500:[0.0366,0.0605],630:[0.0283,0.0469],800:[0.0221,0.0367],1000:[0.0176,0.0291],1200:[0.0151,0.0247],1400:[0.0129,0.0212],
-  1600:[0.0113,0.0186],1800:[0.0101,0.0165],2000:[0.0090,0.0149],2500:[0.0072,0.0127]};
-// IEC 60228 class 2 원형 도체 최소 소선 수 [비압축, 압축]
-const WIRES = {1.5:[7,null],2.5:[7,null],4:[7,null],6:[7,null],10:[7,6],16:[7,6],25:[7,6],35:[7,6],50:[19,6],70:[19,12],95:[19,15],
-  120:[37,18],150:[37,18],185:[37,30],240:[61,34],300:[61,34],400:[61,53],500:[61,53],630:[91,53],800:[91,53],1000:[91,53]};
-// IEC 60502-1 절연 공칭 두께 [단면적 상한, 0.6/1 kV, 1.8/3 kV]
-const T_LV = {
-  XLPE: [[16,0.7,2.0],[35,0.9,2.0],[50,1.0,2.0],[95,1.1,2.0],[120,1.2,2.0],[150,1.4,2.0],[185,1.6,2.0],[240,1.7,2.0],[300,1.8,2.0],[400,2.0,2.0],[500,2.2,2.2],[630,2.4,2.4],[800,2.6,2.6],[1000,2.8,2.8]],
-  PVC:  [[2.5,0.8,2.2],[16,1.0,2.2],[35,1.2,2.2],[70,1.4,2.2],[120,1.6,2.2],[150,1.8,2.2],[185,2.0,2.2],[240,2.2,2.2],[300,2.4,2.4],[400,2.6,2.6],[800,2.8,2.8],[1000,3.0,3.0]]
-};
-const T_BED = [[25,1.0],[35,1.2],[45,1.4],[60,1.6],[80,1.8],[Infinity,2.0]];            // 압출 내부 피복: 하부 직경 → 두께
-const T_ARM_WIRE = [[10,0.8],[15,1.25],[25,1.6],[35,2.0],[60,2.5],[Infinity,3.15]];     // 원형 외장선: 하부 직경 → 선 지름
-const T_ARM_TAPE = [[30,0.2],[70,0.5],[Infinity,0.8]];                                   // 강대: 하부 직경 → 두께
-const lookup = (rows, D) => (rows.find(r => D <= r[0] + 1e-9) || rows[rows.length - 1])[1];
+/* 규격 기준값은 iec-tables.json 에서 읽는다. 값마다 출처와 확인 상태가 붙어 있고,
+   판정은 어떤 값을 썼는지(ref = "항목:행 id")를 함께 기록해 화면에 확인 상태를 표시한다. */
+let STD = null;
+let CLASSES = {}, IEC_SIZES = [], R60228 = {}, WIRES = {}, T_LV = {}, T_BED = [], T_ARM_WIRE = [], T_ARM_TAPE = [], RULE = {}, TEMP = {};
+const STD_ROWS = new Map();                       // "항목:행 id" → {item, row, status}
+const STD_STATUS_TXT = {verified: '규격 원문 대조 완료', crosschecked: '공개 자료와 일치 · 원문 미대조', unverified: '원문 대조 필요'};
+async function loadStd(){
+  try {
+    const r = await fetch('iec-tables.json', {cache: 'no-store'});
+    if (!r.ok) return false;
+    STD = await r.json();
+  } catch (e){ STD = null; return false; }
+  STD_ROWS.clear();
+  for (const it of STD.items) for (const row of it.rows) STD_ROWS.set(`${it.key}:${row.id}`, {item: it, row, status: row.status || it.status});
+  const rows = k => (STD.items.find(i => i.key === k) || {rows: []}).rows;
+  const val = (k, id) => { const x = rows(k).find(r => r.id === id); return x ? {value: x.value, ref: `${k}:${id}`} : null; };
+  CLASSES = {};
+  for (const r of rows('classes')){
+    const lv = r.std === 'IEC 60502-1';
+    CLASSES[r.id] = {std: r.std, U: +r.id.split('/')[1], Um: r.value, lv,
+      min: val('minSize', r.id), t: lv ? null : val('mvInsulation', r.id), test: val('testVoltage', r.id), ref: `classes:${r.id}`};
+  }
+  R60228 = {}; IEC_SIZES = [];
+  for (const r of rows('r60228')){ (R60228[r.size] ||= {})[r.mat] = {value: r.value, ref: `r60228:${r.id}`}; if (!IEC_SIZES.includes(r.size)) IEC_SIZES.push(r.size); }
+  IEC_SIZES.sort((a, b) => a - b);
+  WIRES = {};
+  for (const r of rows('wiresMin')) (WIRES[r.size] ||= {})[r.type] = {value: r.value, ref: `wiresMin:${r.id}`};
+  T_LV = {};
+  for (const r of rows('lvInsulation')) ((T_LV[r.mat] ||= {})[r.cls] ||= []).push({max: r.maxSize, value: r.value, ref: `lvInsulation:${r.id}`});
+  for (const m in T_LV) for (const c in T_LV[m]) T_LV[m][c].sort((a, b) => a.max - b.max);
+  const band = k => rows(k).map(r => ({max: r.maxD == null ? Infinity : r.maxD, value: r.value, ref: `${k}:${r.id}`})).sort((a, b) => a.max - b.max);
+  T_BED = band('bedding'); T_ARM_WIRE = band('armourWire'); T_ARM_TAPE = band('armourTape');
+  RULE = {};
+  for (const k of ['insulationMin', 'sheathNominal', 'sheathMin', 'wireGap']){
+    RULE[k] = {refs: rows(k).map(r => `${k}:${r.id}`)};
+    for (const r of rows(k)) RULE[k][r.id] = r.value;
+  }
+  TEMP = {};
+  for (const r of rows('maxTemp')) TEMP[r.id] = {value: r.value, ref: `maxTemp:${r.id}`};
+  return true;
+}
+// 구간표에서 하부 직경 D에 해당하는 행 {max, value, ref}
+const lookup = (rows, D) => rows.find(r => D <= r.max + 1e-9) || rows[rows.length - 1];
+// 판정에 쓴 기준값들의 확인 상태 중 가장 약한 것
+function refStatus(refs){
+  let worst = null;
+  for (const id of refs || []){
+    const s = STD_ROWS.get(id); if (!s) continue;
+    if (s.status === 'unverified') return 'unverified';
+    if (s.status === 'crosschecked') worst = 'crosschecked';
+    else if (!worst) worst = 'verified';
+  }
+  return worst;
+}
+function stdStats(){
+  const n = {verified: 0, crosschecked: 0, unverified: 0, total: 0};
+  for (const s of STD_ROWS.values()){ n[s.status] = (n[s.status] || 0) + 1; n.total++; }
+  return n;
+}
 const STATUS_RANK = {fail: 4, warn: 3, pass: 2, info: 1, na: 0};
 const STATUS_TXT = {pass: '적합', fail: '부적합', warn: '확인 필요', info: '정보', na: '해당 없음'};
 const CHECK_COL = {fail: '#FF6B61', warn: '#E8B04B', pass: '#5FCB9A', none: '#5A6068'};
@@ -1553,11 +1586,11 @@ const FILL_DEFAULT = {round: 0.76, compact: 0.90, segment: 0.90, solid: 1};   //
 const ge = (a, b) => a >= b - 5e-3;          // 도면 좌표 오차 0.005 mm 허용
 const fmtR = v => v >= 1 ? v.toFixed(3) : v.toPrecision(3);
 
+// 저압 절연 공칭 두께 행 {max, value, ref} — 표 범위 밖이면 null
 function lvThickness(mat, cls, size){
-  const rows = T_LV[mat]; if (!rows || size > 1000) return null;
-  if (cls === '1.8/3' && size < 10) return null;
-  const r = rows.find(r => size <= r[0] + 1e-9);
-  return r ? r[CLASSES[cls].col] : null;
+  const rows = T_LV[mat] && T_LV[mat][cls], min = CLASSES[cls] && CLASSES[cls].min;
+  if (!rows || (min && size < min.value)) return null;
+  return rows.find(r => size <= r.max + 1e-9) || null;
 }
 // 링 형태 층의 평균·최소 두께 (도면 단위). 평균은 면적 등가, 최소는 가장 얇은 곳
 function ringT(rg){
@@ -1656,7 +1689,7 @@ function iecAuto(m){
   } else {
     const ins = m.groups.find(g => g.comp === 'insulation'), T = ins && ringT(ins.regions[0]), t = T ? T.avg * m.unit : 0;
     let c = '0.6/1';
-    for (const k of ['3.6/6','6/10','8.7/15','12/20','18/30']) if (t >= CLASSES[k].t - 0.05) c = k;
+    for (const k of ['3.6/6','6/10','8.7/15','12/20','18/30']) if (CLASSES[k] && CLASSES[k].t && t >= CLASSES[k].t.value - 0.05) c = k;
     S.cls = c; S.why = `전압 표기 없음 → 절연 ${fmt(t, 2)} mm로 ${c} kV 추정`;
   }
   S.cond = 'compact'; S.fill = FILL_DEFAULT.compact;
@@ -1678,11 +1711,13 @@ function evaluate(){
   const ci = conductorInfo(S), wires = wireInfo(S), conds = G('conductor'), insul = G('insulation');
   const size = S.size, std = IEC_SIZES.includes(size);
 
-  if (!cls){
+  if (!STD){
+    add('적용 범위', {title:'규격 기준값 파일 없음', status:'na', note:'iec-tables.json을 불러오지 못해 판정하지 않음'});
+  } else if (!cls){
     add('적용 범위', {title:'IEC 60502 적용 범위', status:'na', val:[['판정','범위 밖']],
       note: S.why + ' · 150 kV 이하 IEC 60840, 초과 IEC 62067 대상'});
   } else {
-    add('적용 범위', {title:`${cls.std} · U0/U ${S.cls} kV`, status:'info', val:[['Um', cls.Um + ' kV'], ['구분', cls.lv ? '저압' : '고압']], note: S.why});
+    add('적용 범위', {title:`${cls.std} · U0/U ${S.cls} kV`, status:'info', refs:[cls.ref], val:[['Um', cls.Um + ' kV'], ['구분', cls.lv ? '저압' : '고압']], note: S.why});
 
     /* --- 도체 --- */
     const sec = '도체 · IEC 60228';
@@ -1692,31 +1727,32 @@ function evaluate(){
       const matTxt = mats.map(x => MAT[x].ko).join(', ');
       add(sec, {title:'도체 재질', gids, status: okMat ? 'pass' : 'fail', val:[['도면', matTxt], ['허용', '연동 · 알루미늄']],
         say:`도체 재질 ${matTxt} — 허용 재질 아님`, fix:'연동 또는 알루미늄으로 변경'});
-      const small = size < cls.min, sz = fmt(size, size < 10 ? 1 : 0);
-      add(sec, {title:'공칭 단면적', gids, status: small ? 'fail' : std ? 'pass' : 'warn', verify: !cls.lv,
-        val:[['선정', sz + ' mm²'], ['등급 최소', cls.min + ' mm²']],
-        say: small ? `도체 ${sz} mm² — ${S.cls} kV 최소 ${cls.min} mm² 미달` : `도체 ${sz} mm² — IEC 표준 단면적 아님`,
-        fix: small ? `${cls.min} mm² 이상으로 변경` : '표준 단면적 선정 또는 발주처 협의',
+      const minS = cls.min ? cls.min.value : 0, small = size < minS, sz = fmt(size, size < 10 ? 1 : 0);
+      add(sec, {title:'공칭 단면적', gids, status: small ? 'fail' : std ? 'pass' : 'warn', refs: cls.min ? [cls.min.ref] : [],
+        val:[['선정', sz + ' mm²'], ['등급 최소', minS + ' mm²']],
+        say: small ? `도체 ${sz} mm² — ${S.cls} kV 최소 ${minS} mm² 미달` : `도체 ${sz} mm² — IEC 표준 단면적 아님`,
+        fix: small ? `${minS} mm² 이상으로 변경` : '표준 단면적 선정 또는 발주처 협의',
         note: std ? '' : 'IEC 60228 표준 단면적 아님 → 저항 기준 적용 불가'});
       add(sec, {title:'도체 금속 단면적', gids, status:'info',
         val:[...(ci.fillUsed < 1 ? [['도면 외곽', fmt(ci.Adraw / ci.cores * u * u, 1) + ' mm²']] : []), ['1심 금속', fmt(ci.Acore * u * u, 1) + ' mm²'], ['공칭 대비', fmt(ci.Acore * u * u / size * 100, 1) + ' %']],
         note: ci.stranded ? `소선 ${ci.nWires}가닥 합` : ci.fillUsed < 1 ? `외곽 면적 × 점적률 ${ci.fillUsed} (가정)` : '단선'});
-      const need = WIRES[size] ? (S.cond === 'round' ? WIRES[size][0] : S.cond === 'compact' ? WIRES[size][1] : null) : null;
+      const wrow = WIRES[size] && (S.cond === 'round' || S.cond === 'compact') ? WIRES[size][S.cond] : null;
+      const need = wrow ? wrow.value : null, wrefs = wrow ? [wrow.ref] : [];
       if (S.cond === 'solid') add(sec, {title:'도체 구조', gids, status:'info', val:[['구조','단선 (class 1)']]});
       else if (S.cond === 'segment') add(sec, {title:'최소 소선 수', gids, status:'info', val:[['구조','분할 도체']], note:'세그먼트 구성은 제조 사양 확인'});
-      else if (!ci.stranded) add(sec, {title:'최소 소선 수', gids, status:'warn', verify: true, val: need ? [['도면','소선 미표현'], ['최소', need + ' 가닥']] : [['도면','소선 미표현']],
+      else if (!ci.stranded) add(sec, {title:'최소 소선 수', gids, status:'warn', refs: wrefs, val: need ? [['도면','소선 미표현'], ['최소', need + ' 가닥']] : [['도면','소선 미표현']],
         say:'도면에 소선 없음 — 소선 수 판정 불가', fix:'설계 사양으로 확인', note:'소선을 원으로 그리면 자동 판정'});
       else if (!need) add(sec, {title:'최소 소선 수', gids, status:'warn', val:[['도면', ci.nWires + ' 가닥']],
         say:`소선 ${ci.nWires}가닥 — 기준값 없음 (비표준 단면적)`, fix:'설계 사양으로 확인'});
-      else add(sec, {title:'최소 소선 수', gids, status: ci.nWires >= need ? 'pass' : 'fail', verify: true, val:[['도면', ci.nWires + ' 가닥'], ['최소', need + ' 가닥']],
+      else add(sec, {title:'최소 소선 수', gids, status: ci.nWires >= need ? 'pass' : 'fail', refs: wrefs, val:[['도면', ci.nWires + ' 가닥'], ['최소', need + ' 가닥']],
         say:`소선 ${ci.nWires}가닥 — 최소 ${need}가닥 미달`, fix:`${need}가닥 이상으로 구성`, note: S.cond === 'round' ? '원형 비압축 연선' : '원형 압축 연선'});
-      const lim = R60228[size] && R60228[size][mats[0] === 'AL' ? 1 : 0];
+      const lrow = R60228[size] && R60228[size][mats[0] === 'AL' ? 'AL' : 'CU'], lim = lrow ? lrow.value : null;
       if (okMat && ci.Rcable){
         const base = [['계산', fmtR(ci.Rcable) + ' Ω/km']];
         const note = `연입률 반영 (k̄ ${ci.kbar.toFixed(4)}${ci.cores >= 2 ? ` · 연합 ${ci.kLay.toFixed(4)}` : ''})`;
         if (!lim) add(sec, {title:'최대 도체저항 (20 °C)', gids, status:'warn', val: base, note,
           say:`도체 저항 ${fmtR(ci.Rcable)} Ω/km — 기준값 없음 (비표준 단면적)`, fix:'발주처 요구값으로 확인'});
-        else add(sec, {title:'최대 도체저항 (20 °C)', gids, status: ci.Rcable <= lim ? 'pass' : 'fail', val:[...base, ['최대', fmtR(lim) + ' Ω/km']], note,
+        else add(sec, {title:'최대 도체저항 (20 °C)', gids, status: ci.Rcable <= lim ? 'pass' : 'fail', refs:[lrow.ref], val:[...base, ['최대', fmtR(lim) + ' Ω/km']], note,
           say:`도체 저항 ${fmtR(ci.Rcable)} Ω/km — 허용 ${fmtR(lim)} 초과`, fix:`금속 단면적 +${fmt((ci.Rcable / lim - 1) * 100, 1)} % 이상`});
       }
     }
@@ -1738,19 +1774,20 @@ function evaluate(){
         say:`절연 재질 ${MAT[mat].ko} — 허용 재질 아님`, fix: cls.lv ? 'PVC · XLPE · EPR로 변경' : 'XLPE · EPR로 변경'});
       if (!T.length){ add(sec2, {title:'절연 두께' + lab, gids, status:'warn', say:'절연 두께 계산 불가 (원형 아님)', fix:'도면 확인'}); continue; }
       const avg = Math.min(...T.map(t => t.avg)) * u, tmin = Math.min(...T.map(t => t.min)) * u;
-      const tn = cls.lv ? lvThickness(mat, S.cls, size) : (mat === 'XLPE' || mat === 'EPR') ? cls.t : null;
+      const tnRow = cls.lv ? lvThickness(mat, S.cls, size) : (mat === 'XLPE' || mat === 'EPR') ? cls.t : null;
+      const tn = tnRow ? tnRow.value : null;
       if (tn == null){
         add(sec2, {title:'절연 공칭 두께' + lab, gids, status:'warn', val:[['도면', mm(avg)]],
           say:`절연 ${mm(avg)} — 기준값 없음`, fix:'규격 원문 · 발주처 사양으로 확인', note: mat === 'EPR' && cls.lv ? 'EPR 저압 두께 표 미내장' : '해당 조건 표 값 없음'});
         continue;
       }
-      add(sec2, {title:'절연 공칭 두께' + lab, gids, status: ge(avg, tn) ? 'pass' : 'fail', verify: mat === 'PVC',
+      add(sec2, {title:'절연 공칭 두께' + lab, gids, status: ge(avg, tn) ? 'pass' : 'fail', refs:[tnRow.ref],
         val:[['도면 평균', mm(avg)], ['기준', '≥ ' + mm(tn, 1)]],
         say:`절연 두께 ${mm(avg)} — 기준 ${mm(tn, 1)} (−${mm(tn - avg)})`, fix:`절연 +${mm(tn - avg)} 또는 적용 등급 재검토`,
         note: cls.lv ? `${cls.std} 표 · ${MAT[mat].ko} · ${fmt(size, 0)} mm²` : `${cls.std} 표 · ${S.cls} kV`});
-      const tl = 0.9 * tn - 0.1;
-      add(sec2, {title:'절연 최소 두께' + lab, gids, status: ge(tmin, tl) ? 'pass' : 'fail', val:[['도면 최소', mm(tmin)], ['기준', '≥ ' + mm(tl)]],
-        note:'공칭 × 0.9 − 0.1 mm', say:`절연 최소 두께 ${mm(tmin)} — 기준 ${mm(tl)} 미달`, fix:`최소 두께 +${mm(tl - tmin)} (편심 포함)`});
+      const IM = RULE.insulationMin, tl = IM.factor * tn - IM.minus;
+      add(sec2, {title:'절연 최소 두께' + lab, gids, status: ge(tmin, tl) ? 'pass' : 'fail', refs:[tnRow.ref, ...IM.refs], val:[['도면 최소', mm(tmin)], ['기준', '≥ ' + mm(tl)]],
+        note:`공칭 × ${IM.factor} − ${IM.minus} mm`, say:`절연 최소 두께 ${mm(tmin)} — 기준 ${mm(tl)} 미달`, fix:`최소 두께 +${mm(tl - tmin)} (편심 포함)`});
     }
 
     /* --- 반도전층 (고압) --- */
@@ -1772,9 +1809,9 @@ function evaluate(){
       val: metals.length ? [['도면', metals.map(g => nameOf(g)).join(', ')]] : [], say:'금속 차폐층 없음', fix:'동선 · 동테이프 차폐 추가'});
     for (const w of wires){
       if (w.g.comp === 'armour') continue;
-      const ga = w.gapAvg * u, gm = w.gapMax * u;
-      add(sec4, {title:`${nameOf(w.g)} 선 간격`, gids:[w.g.id], status: ga <= 4 + 5e-3 && gm <= 8 + 5e-3 ? 'pass' : 'fail', verify: true,
-        val:[['평균', mm(ga)], ['최대', mm(gm)], ['기준', '평균 ≤ 4 · 개별 ≤ 8 mm']],
+      const ga = w.gapAvg * u, gm = w.gapMax * u, WG = RULE.wireGap;
+      add(sec4, {title:`${nameOf(w.g)} 선 간격`, gids:[w.g.id], status: ga <= WG.avg + 5e-3 && gm <= WG.max + 5e-3 ? 'pass' : 'fail', refs: WG.refs,
+        val:[['평균', mm(ga)], ['최대', mm(gm)], ['기준', `평균 ≤ ${WG.avg} · 개별 ≤ ${WG.max} mm`]],
         note:`선 경사각 ${fmt(w.alpha, 1)}° 반영, 선 직각 방향`, say:`${nameOf(w.g)} 간격 평균 ${mm(ga)} · 최대 ${mm(gm)} — 기준 초과`, fix:'선 수 증가 또는 선 지름 확대'});
       add(sec4, {title:`${nameOf(w.g)} 단면적 · 저항`, gids:[w.g.id], status:'info',
         val:[['단면적', fmt(w.A * u * u, 1) + ' mm²'], ...(w.R ? [['20 °C', fmtR(w.R) + ' Ω/km']] : [])],
@@ -1789,22 +1826,25 @@ function evaluate(){
         val:[['개재물', G('filler').length ? '있음' : '없음'], ['바인더', G('binder').length ? '있음' : '없음'], ['내부 피복', bed.length ? '있음' : '없음']]});
       for (const g of bed){
         const T = ringT(g.regions[0]); if (!T) continue;
-        const D = T.dfar * u, tn = lookup(T_BED, D);
-        add(sec5, {title:'내부 피복 두께', gids:[g.id], status: ge(T.avg * u, tn) ? 'pass' : 'fail', verify: true, val:[['도면', mm(T.avg * u)], ['기준', '≥ ' + mm(tn, 1)]],
+        const D = T.dfar * u, row = lookup(T_BED, D); if (!row) continue;
+        const tn = row.value;
+        add(sec5, {title:'내부 피복 두께', gids:[g.id], status: ge(T.avg * u, tn) ? 'pass' : 'fail', refs:[row.ref], val:[['도면', mm(T.avg * u)], ['기준', '≥ ' + mm(tn, 1)]],
           note:`하부 직경 ${fmt(D, 1)} mm (도면 실측)`, say:`내부 피복 ${mm(T.avg * u)} — 기준 ${mm(tn, 1)} 미달`, fix:`+${mm(tn - T.avg * u)}`});
       }
-      if (arm.length && ci && ci.cores >= 2 && !bed.length) add(sec5, {title:'외장 아래 내부 피복', gids: arm.map(g => g.id), status:'fail', verify: true,
+      if (arm.length && ci && ci.cores >= 2 && !bed.length) add(sec5, {title:'외장 아래 내부 피복', gids: arm.map(g => g.id), status:'fail', verify:'unverified',
         say:'외장 아래 내부 피복 없음', fix:'내부 피복 추가'});
       for (const g of arm){
         const w = wires.find(x => x.g === g);
         if (w){
-          const D = (2 * w.rm - w.d) * u, dn = lookup(T_ARM_WIRE, D);
-          add(sec5, {title:'외장선 지름', gids:[g.id], status: ge(w.d * u, dn) ? 'pass' : 'fail', verify: true, val:[['도면', mm(w.d * u)], ['기준', '≥ ' + mm(dn)]],
+          const D = (2 * w.rm - w.d) * u, row = lookup(T_ARM_WIRE, D); if (!row) continue;
+          const dn = row.value;
+          add(sec5, {title:'외장선 지름', gids:[g.id], status: ge(w.d * u, dn) ? 'pass' : 'fail', refs:[row.ref], val:[['도면', mm(w.d * u)], ['기준', '≥ ' + mm(dn)]],
             note:`하부 직경 ${fmt(D, 1)} mm`, say:`외장선 Ø${fmt(w.d * u, 2)} mm — 기준 Ø${fmt(dn, 2)} 미달`, fix:`Ø${fmt(dn, 2)} mm 이상`});
         } else {
           const T = ringT(g.regions[0]); if (!T) continue;
-          const D = T.dfar * u, tn = lookup(T_ARM_TAPE, D), t1 = T.avg * u / 2;
-          add(sec5, {title:'외장 강대 두께', gids:[g.id], status: ge(t1, tn) ? 'pass' : 'fail', verify: true, val:[['1장', mm(t1)], ['기준', '≥ ' + mm(tn, 1)]],
+          const D = T.dfar * u, row = lookup(T_ARM_TAPE, D); if (!row) continue;
+          const tn = row.value, t1 = T.avg * u / 2;
+          add(sec5, {title:'외장 강대 두께', gids:[g.id], status: ge(t1, tn) ? 'pass' : 'fail', refs:[row.ref], val:[['1장', mm(t1)], ['기준', '≥ ' + mm(tn, 1)]],
             note:`2장 겹감기 가정 · 하부 직경 ${fmt(D, 1)} mm`, say:`강대 1장 ${mm(t1)} — 기준 ${mm(tn, 1)} 미달`, fix:`${fmt(tn, 1)} mm 이상`});
         }
       }
@@ -1819,22 +1859,25 @@ function evaluate(){
       const T = ringT(sh.regions[0]);
       if (T){
         const D = T.dfar * u, overMetal = underlying(sh.regions[0]).some(g => ['neutral','mscreen','armour','metalsheath'].includes(g.comp));
-        const tcalc = Math.round((0.035 * D + 1.0) * 10) / 10, floor = (ci && ci.cores >= 2) || overMetal ? 1.8 : 1.4, tn = Math.max(tcalc, floor);
-        add(sec6, {title:'시스 공칭 두께', gids:[sh.id], status: ge(T.avg * u, tn) ? 'pass' : 'fail', val:[['도면 평균', mm(T.avg * u)], ['기준', '≥ ' + mm(tn, 1)]],
-          note:`0.035 D + 1.0 = ${fmt(tcalc, 1)} (D ${fmt(D, 1)} mm, 도면 실측) · 하한 ${floor}`,
+        const SN = RULE.sheathNominal, SM = RULE.sheathMin;
+        const tcalc = Math.round((SN.a * D + SN.b) * 10) / 10, floor = (ci && ci.cores >= 2) || overMetal ? SN.floorMulti : SN.floorSingle, tn = Math.max(tcalc, floor);
+        add(sec6, {title:'시스 공칭 두께', gids:[sh.id], status: ge(T.avg * u, tn) ? 'pass' : 'fail', refs: SN.refs, val:[['도면 평균', mm(T.avg * u)], ['기준', '≥ ' + mm(tn, 1)]],
+          note:`${SN.a} D + ${SN.b} = ${fmt(tcalc, 1)} (D ${fmt(D, 1)} mm, 도면 실측) · 하한 ${floor}`,
           say:`시스 두께 ${mm(T.avg * u)} — 기준 ${mm(tn, 1)} (−${mm(tn - T.avg * u)})`, fix:`시스 +${mm(tn - T.avg * u)}`});
-        const tl = overMetal ? 0.8 * tn - 0.2 : 0.85 * tn - 0.1;
-        add(sec6, {title:'시스 최소 두께', gids:[sh.id], status: ge(T.min * u, tl) ? 'pass' : 'fail', val:[['도면 최소', mm(T.min * u)], ['기준', '≥ ' + mm(tl)]],
-          note: overMetal ? '공칭 × 0.8 − 0.2 mm (금속층 위)' : '공칭 × 0.85 − 0.1 mm',
+        const [kF, kM] = overMetal ? [SM.irregularFactor, SM.irregularMinus] : [SM.smoothFactor, SM.smoothMinus];
+        const tl = kF * tn - kM;
+        add(sec6, {title:'시스 최소 두께', gids:[sh.id], status: ge(T.min * u, tl) ? 'pass' : 'fail', refs:[...SN.refs, ...SM.refs], val:[['도면 최소', mm(T.min * u)], ['기준', '≥ ' + mm(tl)]],
+          note: `공칭 × ${kF} − ${kM} mm` + (overMetal ? ' (금속층 위)' : ''),
           say:`시스 최소 두께 ${mm(T.min * u)} — 기준 ${mm(tl)} 미달`, fix:`최소 두께 +${mm(tl - T.min * u)}`});
       }
     }
 
     /* --- 시험 · 운전 --- */
     const sec8 = '시험 · 운전 정보', im = insul[0] && insul[0].mat;
-    add(sec8, {title:'상용주파 내전압 (정기 시험)', status:'info', val:[['시험 전압', cls.test]]});
-    add(sec8, {title:'도체 최고 허용온도', status:'info',
-      val: im === 'PVC' ? [['상시','70 °C'], ['단락', size > 300 ? '140 °C' : '160 °C']] : [['상시','90 °C'], ['단락','250 °C']]});
+    if (cls.test) add(sec8, {title:'상용주파 내전압 (정기 시험)', status:'info', refs:[cls.test.ref], val:[['시험 전압', `${cls.test.value} kV · 5분`]]});
+    const tk = im === 'PVC' ? ['PVC|normal', size > 300 ? 'PVC|short|>300' : 'PVC|short|<=300'] : im === 'EPR' ? ['EPR|normal', 'EPR|short'] : ['XLPE|normal', 'XLPE|short'];
+    const tN = TEMP[tk[0]], tS = TEMP[tk[1]];
+    if (tN && tS) add(sec8, {title:'도체 최고 허용온도', status:'info', refs:[tN.ref, tS.ref], val:[['상시', tN.value + ' °C'], ['단락', tS.value + ' °C']]});
   }
 
   /* --- 연입률 · 세부 검토 (적용 범위와 무관하게 표시) --- */
@@ -1871,6 +1914,8 @@ function evaluate(){
       note:'(최대 − 최소) ÷ 최대'});
   }
 
+  // 판정마다 사용한 기준값의 확인 상태 (가장 약한 것)
+  for (const c of C) if (c.verify === undefined) c.verify = refStatus(c.refs);
   m.checks = C;
   for (const g of m.groups){
     let st = null;
@@ -2047,6 +2092,17 @@ function renderInfo(){
 function refresh(){ renderReviewSetup(); runReview(); renderSummary(); scheduleRebuild(); }
 
 /* --- IEC 검토 패널 --- */
+// 기준값 확인 상태 태그: 마우스를 올리면 출처(규격 · 표 · 조건)가 보인다
+function vtagHTML(c){
+  if (c.verify !== 'unverified' && c.verify !== 'crosschecked') return '';
+  const src = (c.refs || []).map(id => {
+    const s = STD_ROWS.get(id);
+    return s ? `${s.item.source} · ${s.item.ref} · ${s.row.cond || s.row.id} = ${s.row.value} ${s.item.unit || ''} → ${STD_STATUS_TXT[s.status]}` : '';
+  }).filter(Boolean).join('\n') || STD_STATUS_TXT.unverified;
+  return c.verify === 'unverified'
+    ? `<span class="vtag" title="${esc(src)}">원문 대조 필요</span>`
+    : `<span class="vtag cross" title="${esc(src)}">공개자료 일치</span>`;
+}
 function ckHTML(c, compact){
   const click = !compact && c.gids.length && !c.table, tag = click ? 'button' : 'div';
   const vals = c.val.map(([k, v]) => `<span><em>${esc(k)}</em>${esc(v)}</span>`).join('');
@@ -2054,7 +2110,7 @@ function ckHTML(c, compact){
     + c.table.rows.map(r => `<tr>${r.map(x => `<td>${esc(x)}</td>`).join('')}</tr>`).join('') + '</tbody></table></span>' : '';
   return `<${tag} class="ck ${c.status}"${click ? ` type="button" data-gids="${c.gids.join(',')}"` : ''}>`
     + `<span class="pill ${c.status}">${STATUS_TXT[c.status]}</span><span class="ck-b">`
-    + `<span class="ck-t">${esc(c.title)}${c.verify ? '<span class="vtag" title="공개 자료로 원문과 대조하지 못한 기준값입니다">원문 대조 필요</span>' : ''}</span>`
+    + `<span class="ck-t">${esc(c.title)}${vtagHTML(c)}</span>`
     + (vals ? `<span class="ck-v">${vals}</span>` : '')
     + (c.status === 'fail' && c.fix ? `<span class="ck-fix">→ ${esc(c.fix)}</span>` : '')
     + table + (c.note && !compact ? `<span class="ck-note">${esc(c.note)}</span>` : '')
@@ -2104,6 +2160,10 @@ function runReview(){
   let no = 0;
   for (const g of model.groups) g.no = g.comp === 'void' ? null : ++no;
   const C = model.checks, cls = CLASSES[model.iec.cls];
+  const ss = stdStats();
+  $('#rv-foot').textContent = STD
+    ? `기준값 ${ss.total}개 · 원문 확인 ${ss.verified} · 공개자료 일치 ${ss.crosschecked} · 원문 대조 필요 ${ss.unverified} (iec-tables.json)`
+    : '기준값 파일(iec-tables.json)을 불러오지 못함';
   const n = st => C.filter(c => c.status === st).length, f = n('fail'), w = n('warn'), p = n('pass'), tot = f + w + p || 1;
   $('#rv-sum').innerHTML = cls
     ? `<div class="f"><b>${f}</b><span>부적합</span></div><div class="w"><b>${w}</b><span>확인 필요</span></div><div class="p"><b>${p}</b><span>적합</span></div>`
@@ -2414,7 +2474,7 @@ function renderReport(){
       <div class="more-body" ${moreOpen ? '' : 'hidden'}>${moreOpen ? checksHTML(C) : ''}</div>
     </section>
     <div class="rp-foot">
-      <span>${meta.example ? '<span class="ex-tag">예제</span>' : ''}설계 확인 <b>${esc(meta.designer || '—')}</b> · Rev.${esc(meta.rev || '—')} · ${esc(meta.date || '—')}</span>
+      <span>${meta.example ? '<span class="ex-tag">예제</span>' : ''}설계 확인 <b>${esc(meta.designer || '—')}</b> · Rev.${esc(meta.rev || '—')} · ${esc(meta.date || '—')}${STD ? ` · 기준값 원문 확인 ${stdStats().verified}/${stdStats().total}` : ''}</span>
       <button type="button" class="btn sm" id="rp-cost">재료비</button>
     </div>`;
   el.querySelectorAll('[data-g]').forEach(b => b.onclick = () => {
@@ -2727,7 +2787,9 @@ async function boot(){
   syncTheme();
   setSpin(controls.autoRotate);
   frame();
-  reportData = await loadReportData();
+  const [stdOk, rd] = await Promise.all([loadStd(), loadReportData()]);
+  reportData = rd;
+  if (!stdOk) console.warn('iec-tables.json 을 불러오지 못해 규격 판정을 건너뜁니다');
   $('#loading').remove();
   setView('report');
   goTo(viewFor('strip', false), true);
