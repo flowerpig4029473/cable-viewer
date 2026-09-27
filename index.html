@@ -1,0 +1,2740 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>케이블 단면 3D 뷰어</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbit&family=Sora:wght@200;300;400;500&family=Gothic+A1:wght@300;400;500;600&display=swap">
+<style>
+/* 나이트: 어두운 배경 하나로 고정한 단일 테마. 색은 판정 표시에만 쓴다 */
+:root{
+  color-scheme:dark;
+  --ground:#0E1013; --surface:#15181C; --surface-2:#1B1F24; --surface-3:#232830;
+  --glass:rgba(21,24,28,.84);
+  --ink:#F2F3F5; --ink-2:#B4BAC2; --ink-3:#7D838C; --line:#22262C; --line-2:#30363E;
+  --accent:#F2F3F5; --accent-ink:#0E1013; --accent-soft:rgba(242,243,245,.08);
+  --ok:#5FCB9A; --ok-soft:rgba(95,203,154,.12); --warn:#E8B04B; --warn-soft:rgba(232,176,75,.12);
+  --user:#A9BDFF; --user-soft:rgba(169,189,255,.12);
+  --danger:#FF6B61; --danger-soft:rgba(255,107,97,.12);
+  --stage-a:#1A1E23; --stage-b:#0E1013; --edge:#F2F3F5;
+  --shadow:0 12px 40px rgba(0,0,0,.45);
+  --side-w:340px; --gut:24px;
+  --font:"Gothic A1","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+  --display:"Sora","Orbit","Gothic A1",sans-serif;   /* 영문 · 숫자는 Sora, 한글은 Orbit */
+  --mono:"Sora","Gothic A1",ui-monospace,sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{height:100%}
+body{background:var(--ground);color:var(--ink);font-family:var(--font);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+button,select,input{font:inherit;color:inherit}
+:focus-visible{outline:1px solid var(--ink);outline-offset:2px}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+*{scrollbar-width:thin;scrollbar-color:var(--line-2) transparent}
+
+/* ---------- layout ---------- */
+/* 3D가 화면 전체를 채우고, 상단 바 · 좌측 패널 · 정보 카드는 그 위에 뜬다 */
+.app{position:relative;height:100%;overflow:hidden}
+.topbar{position:absolute;top:0;left:0;right:0;z-index:6;display:flex;align-items:center;gap:14px;padding:18px var(--gut) 0;flex-wrap:wrap;pointer-events:none}
+.topbar > *{pointer-events:auto}
+.brand{display:flex;align-items:center;gap:10px;margin-right:auto;min-width:0}
+.brand svg{flex:none}
+.brand h1{font-family:var(--display);font-size:15px;font-weight:400;letter-spacing:.04em;margin:0;line-height:1.2}
+.tb-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+
+.btn{display:inline-flex;align-items:center;gap:8px;height:34px;padding:0 14px;border-radius:999px;border:1px solid var(--line-2);background:transparent;cursor:pointer;font-weight:400;font-size:13px;white-space:nowrap;color:var(--ink)}
+.btn:hover{background:var(--accent-soft)}
+.btn.primary{background:var(--ink);border-color:var(--ink);color:var(--accent-ink);font-weight:500}
+.btn.primary:hover{background:#FFFFFF}
+.select{height:34px;border-radius:999px;border:1px solid var(--line-2);background-color:var(--surface);padding:0 32px 0 14px;font-size:13px;appearance:none;cursor:pointer;color:var(--ink);
+  background-image:linear-gradient(45deg,transparent 50%,var(--ink-3) 50%),linear-gradient(135deg,var(--ink-3) 50%,transparent 50%);
+  background-position:calc(100% - 16px) 50%,calc(100% - 11px) 50%;background-size:5px 5px;background-repeat:no-repeat;max-width:100%}
+.select option{background:var(--surface);color:var(--ink)}
+
+/* ---------- side panel ---------- */
+.side{position:absolute;z-index:4;top:72px;left:var(--gut);bottom:var(--gut);width:var(--side-w);display:flex;flex-direction:column;gap:10px;overflow:auto;padding-right:4px}
+.card{background:var(--glass);border:1px solid var(--line);border-radius:16px;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
+.drop{padding:14px;display:flex;gap:12px;align-items:center;border-style:dashed;border-color:var(--line-2);cursor:pointer;transition:border-color .15s,background .15s}
+.drop:hover,.drop.over{border-color:var(--ink-2);background:var(--accent-soft)}
+.drop .ic{width:36px;height:36px;border-radius:9px;background:var(--surface-3);display:grid;place-items:center;flex:none;color:var(--ink-2)}
+.drop b{display:block;font-weight:600;font-size:13px}
+.drop span{font-size:12px;color:var(--ink-3)}
+
+.summary{padding:14px 14px 12px}
+.summary .fname{font-weight:600;font-size:13px;word-break:break-all;margin:0 0 2px}
+.summary .fsub{font-size:12px;color:var(--ink-3);margin:0 0 12px}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px 12px;margin:0}
+.stats div{min-width:0}
+.stats dt{font-size:11px;color:var(--ink-3);letter-spacing:.02em}
+.stats dd{margin:0;font-family:var(--mono);font-size:16px;font-weight:300;font-variant-numeric:tabular-nums}
+.stats dd small{font-size:11px;color:var(--ink-3);font-weight:400;margin-left:2px}
+.unit-row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:12px;padding-top:10px;border-top:1px solid var(--line);font-size:12px;color:var(--ink-2)}
+.unit-row .select{height:30px;font-size:12px}
+.notes{margin:10px 0 0;padding:0;list-style:none;display:grid;gap:6px}
+.notes li{font-size:12px;line-height:1.45;padding:7px 9px;border-radius:8px;background:var(--warn-soft);color:var(--warn)}
+.notes li.err{background:var(--danger-soft);color:var(--danger)}
+
+.list-head{display:flex;align-items:baseline;justify-content:space-between;padding:12px 14px 6px}
+.list-head h2{margin:0;font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-2)}
+.list-head span{font-size:11px;color:var(--ink-3)}
+.comp-list{list-style:none;margin:0;padding:4px 6px 8px;display:grid;gap:2px}
+.comp{display:flex;align-items:center;border-radius:9px}
+.comp:hover{background:var(--surface-2)}
+.comp.sel{background:var(--accent-soft)}
+.comp .pick{flex:1;min-width:0;display:flex;align-items:center;gap:10px;padding:8px 8px;background:none;border:0;cursor:pointer;text-align:left;border-radius:9px}
+.sw{width:16px;height:16px;border-radius:50%;flex:none;box-shadow:inset 0 0 0 1px rgba(0,0,0,.18),inset 0 -3px 5px rgba(0,0,0,.18)}
+.comp .t{min-width:0;flex:1}
+.comp .n{display:block;font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.comp .m{display:block;font-size:11.5px;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.comp .d{font-family:var(--mono);font-size:11.5px;color:var(--ink-2);font-variant-numeric:tabular-nums;white-space:nowrap}
+.comp .eye{width:30px;height:30px;border:0;background:none;border-radius:7px;cursor:pointer;color:var(--ink-3);display:grid;place-items:center;flex:none;margin-right:2px}
+.comp .eye:hover{background:var(--surface-3);color:var(--ink)}
+.comp.off .pick{opacity:.45}
+.comp .est{width:8px;height:8px;border-radius:50%;border:1.5px dashed var(--ink-3);flex:none}
+
+details.guide{padding:0}
+details.guide summary{cursor:pointer;padding:12px 14px;font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-2);list-style:none;display:flex;justify-content:space-between}
+details.guide summary::-webkit-details-marker{display:none}
+details.guide summary::after{content:"+";font-family:var(--mono);color:var(--ink-3)}
+details.guide[open] summary::after{content:"−"}
+.guide-body{padding:0 14px 14px;font-size:12.5px;color:var(--ink-2)}
+.guide-body p{margin:0 0 10px}
+.kw{width:100%;border-collapse:collapse;font-size:12px}
+.kw td{padding:5px 0;border-top:1px solid var(--line);vertical-align:top}
+.kw td:first-child{color:var(--ink);font-weight:500;padding-right:10px;white-space:nowrap}
+.kw code{font-family:var(--mono);font-size:11px;background:var(--surface-3);padding:1px 5px;border-radius:4px;margin:0 2px 2px 0;display:inline-block}
+
+/* ---------- stage ---------- */
+.stagewrap{position:absolute;inset:0}
+.stage{position:absolute;inset:0;overflow:hidden;background:radial-gradient(80% 70% at 62% 46%,var(--stage-a) 0%,var(--stage-b) 72%)}
+.stage canvas{display:block;width:100%;height:100%;touch-action:none;outline:none}
+.hint{position:absolute;right:var(--gut);top:70px;font-size:11.5px;color:var(--ink-3);display:flex;gap:14px;flex-wrap:wrap;pointer-events:none;letter-spacing:.02em}
+.hint kbd{font-family:var(--font);font-weight:500;color:var(--ink-2)}
+.cable-title{display:none}
+.cable-title b{display:block;font-family:var(--display);font-size:13px;font-weight:400}
+.cable-title span{font-size:12px;color:var(--ink-3)}
+
+.viewbar{position:absolute;left:calc(50% + var(--side-w) / 2);bottom:var(--gut);transform:translateX(-50%);width:max-content;display:flex;gap:6px;align-items:center;background:var(--glass);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:999px;padding:5px 8px;max-width:calc(100% - var(--side-w) - var(--gut) * 3);flex-wrap:wrap;justify-content:center}
+.seg{display:flex;border-radius:999px;padding:2px;gap:2px}
+.seg button{border:0;background:none;height:30px;padding:0 13px;border-radius:999px;cursor:pointer;font-size:12.5px;font-weight:400;color:var(--ink-3);white-space:nowrap}
+.seg button:hover{color:var(--ink)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--accent-ink);font-weight:500}
+.vb-sep{width:1px;height:20px;background:var(--line-2)}
+@media (max-width:1280px) and (min-width:861px){ .dial,.vb-sep{display:none} .seg button{padding:0 11px} }
+.twist-sel{display:flex;align-items:center;gap:6px;padding-left:6px;color:var(--ink-3)}
+select.mini{height:30px;border:0;border-radius:999px;background-color:transparent;padding:0 26px 0 6px;font-size:12.5px;font-weight:400;color:var(--ink-2);appearance:none;cursor:pointer;
+  background-image:linear-gradient(45deg,transparent 50%,var(--ink-3) 50%),linear-gradient(135deg,var(--ink-3) 50%,transparent 50%);
+  background-position:calc(100% - 14px) 50%,calc(100% - 10px) 50%;background-size:4px 4px;background-repeat:no-repeat}
+.lay-in select.mini{background-color:var(--surface);border:1px solid var(--line-2);height:28px}
+.tbl tr.on td{background:var(--accent-soft);color:var(--ink)}
+.twist-pick{margin:0 0 8px;font-size:12.5px;line-height:1.55;color:var(--ink-2)}
+.twist-pick b{font-family:var(--mono);color:var(--ink);font-weight:500}
+.ibtn{width:34px;height:34px;border:0;background:none;border-radius:999px;cursor:pointer;display:grid;place-items:center;color:var(--ink-3)}
+.ibtn:hover{background:var(--accent-soft);color:var(--ink)}
+.ibtn[aria-pressed="true"]{color:var(--ink);background:var(--accent-soft)}
+.dial{display:flex;align-items:center;gap:8px;padding:0 6px 0 4px;color:var(--ink-3)}
+.dial input{width:110px;accent-color:var(--ink)}
+.dial output{font-family:var(--mono);font-weight:300;font-size:12px;color:var(--ink-2);width:36px;text-align:right;font-variant-numeric:tabular-nums}
+
+.tip{position:absolute;pointer-events:none;background:var(--surface);border:1px solid var(--line-2);color:var(--ink);font-size:12px;padding:6px 10px;border-radius:999px;white-space:nowrap;transform:translate(14px,14px);z-index:3}
+.tip small{color:var(--ink-3);margin-left:6px}
+
+.drop-over{position:absolute;inset:16px;border:1px dashed var(--ink-2);border-radius:20px;background:rgba(14,16,19,.7);display:grid;place-items:center;font-family:var(--display);font-size:18px;color:var(--ink);z-index:7;pointer-events:none}
+.loading{position:absolute;inset:0;display:grid;place-items:center;color:var(--ink-3);font-size:13px;z-index:2;letter-spacing:.06em}
+.loading.err{color:var(--danger);padding:24px;text-align:center}
+
+/* ---------- info card ---------- */
+#info{position:absolute;top:72px;right:var(--gut);width:330px;max-height:calc(100% - 72px - var(--gut) - 70px);overflow:auto;background:var(--glass);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);border:1px solid var(--line);border-radius:18px;z-index:5}
+.info-head{padding:18px 18px 14px;border-bottom:1px solid var(--line);position:relative}
+.eyebrow{font-family:var(--mono);font-size:11px;font-weight:300;letter-spacing:.12em;color:var(--ink-3);margin:0 0 6px;display:flex;align-items:center;gap:8px}
+#info h2{margin:0;font-family:var(--display);font-size:21px;font-weight:400;letter-spacing:.01em;line-height:1.3;text-wrap:balance}
+#info .en{margin:3px 0 12px;font-size:12.5px;color:var(--ink-3)}
+.close{position:absolute;top:12px;right:12px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{display:inline-flex;align-items:center;gap:7px;height:26px;padding:0 10px 0 7px;border-radius:999px;border:1px solid var(--line-2);font-size:12px;font-weight:400}
+.chip .sw{width:13px;height:13px}
+.badge{display:inline-flex;align-items:center;height:26px;padding:0 9px;border-radius:999px;font-size:11.5px;font-weight:500}
+.badge.layer,.badge.text{background:var(--ok-soft);color:var(--ok)}
+.badge.guess{background:var(--warn-soft);color:var(--warn)}
+.badge.user{background:var(--user-soft);color:var(--user)}
+.info-sec{padding:14px 18px;border-bottom:1px solid var(--line)}
+.info-sec:last-child{border-bottom:0}
+.info-sec h3{margin:0 0 10px;font-size:11px;font-weight:400;letter-spacing:.12em;color:var(--ink-3)}
+.desc{margin:0;font-size:13px;color:var(--ink-2);line-height:1.6}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;margin:0;font-size:12.5px}
+.kv dt{color:var(--ink-3)}
+.kv dd{margin:0;text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums;color:var(--ink)}
+.kv dd.txt{font-family:var(--font)}
+.big{display:flex;gap:18px;margin-bottom:10px}
+.big div span{display:block;font-size:11px;color:var(--ink-3)}
+.big div b{font-family:var(--mono);font-size:28px;font-weight:200;line-height:1.1;font-variant-numeric:tabular-nums}
+.big div b small{font-size:11px;color:var(--ink-3);font-weight:400;margin-left:3px}
+.edit{display:grid;gap:8px}
+.edit label{display:grid;gap:4px;font-size:11.5px;color:var(--ink-3)}
+.edit .select{width:100%;height:32px;font-size:12.5px}
+.layers{display:flex;flex-wrap:wrap;gap:4px}
+.layers code{font-family:var(--mono);font-size:11px;background:var(--surface-3);padding:2px 6px;border-radius:5px;color:var(--ink-2)}
+
+/* ---------- tabs · IEC review ---------- */
+.tabs{display:flex;padding:4px 6px 0;border-bottom:1px solid var(--line)}
+.tabs button{flex:1;border:0;background:none;padding:10px 6px 11px;font-size:13px;font-weight:500;color:var(--ink-3);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;display:inline-flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap}
+.tabs button:hover{color:var(--ink-2)}
+.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+.tab-badge{min-width:18px;height:18px;padding:0 5px;border-radius:9px;font-size:11px;font-weight:600;display:inline-grid;place-items:center;font-family:var(--mono);color:var(--surface)}
+.tab-badge.fail{background:var(--danger)} .tab-badge.warn{background:var(--warn)} .tab-badge.pass{background:var(--ok)}
+.rv{padding:12px 12px 14px;display:grid;gap:16px}
+.rv-set{display:grid;gap:8px}
+.rv-set label{display:grid;grid-template-columns:78px minmax(0,1fr);align-items:center;gap:8px;font-size:12px;color:var(--ink-2)}
+.rv-set .select{height:32px;font-size:12.5px;width:100%}
+.rv-why{margin:0;font-size:11.5px;color:var(--ink-3);line-height:1.55}
+.rv-sum{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.rv-sum div{padding:8px 10px;border-radius:9px;background:var(--surface-2)}
+.rv-sum b{display:block;font-family:var(--mono);font-size:20px;font-weight:500;line-height:1.2;font-variant-numeric:tabular-nums}
+.rv-sum span{font-size:11px;color:var(--ink-3)}
+.rv-sum .f b{color:var(--danger)} .rv-sum .w b{color:var(--warn)} .rv-sum .p b{color:var(--ok)}
+.rv-sum .rv-bar{grid-column:1/-1;display:flex;height:6px;padding:0;border-radius:3px;overflow:hidden;background:var(--surface-3)}
+.rv-bar i{display:block;height:6px}
+.rv-out{padding:10px 12px;border-radius:10px;background:var(--surface-2);font-size:12.5px;color:var(--ink-2);line-height:1.55}
+.rv-sec h3{margin:0 0 8px;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
+.ck{display:flex;gap:9px;width:100%;text-align:left;padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:var(--surface);margin:0 0 6px;font:inherit;color:inherit;align-items:flex-start}
+button.ck{cursor:pointer}
+button.ck:hover{border-color:var(--line-2);background:var(--surface-2)}
+.ck.fail{background:var(--danger-soft);border-color:transparent}
+button.ck.fail:hover{background:var(--danger-soft);border-color:var(--danger)}
+.pill{flex:none;height:20px;padding:0 7px;border-radius:999px;font-size:11px;font-weight:600;display:inline-flex;align-items:center;white-space:nowrap;margin-top:1px}
+.pill.pass{background:var(--ok-soft);color:var(--ok)}
+.pill.fail{background:var(--danger);color:var(--surface)}
+.pill.warn{background:var(--warn-soft);color:var(--warn)}
+.pill.info,.pill.na{background:var(--surface-3);color:var(--ink-2)}
+.ck-b{min-width:0;flex:1;display:grid;gap:4px}
+.ck-t{font-size:12.5px;font-weight:500;line-height:1.4}
+.ck-v{display:flex;flex-wrap:wrap;gap:2px 12px;font-family:var(--mono);font-size:11.5px;color:var(--ink);font-variant-numeric:tabular-nums}
+.ck-v em{font-style:normal;color:var(--ink-3);font-family:var(--font);margin-right:5px}
+.ck-fix{font-size:12px;color:var(--danger);font-weight:500;line-height:1.45}
+.ck-note{font-size:11.5px;color:var(--ink-3);line-height:1.5}
+.vtag{display:inline-block;font-size:10.5px;color:var(--warn);border:1px solid var(--warn);border-radius:4px;padding:0 4px;margin-left:6px;font-weight:500;white-space:nowrap;vertical-align:1px;opacity:.85}
+.lay-in{display:grid;gap:8px;padding:10px 12px;border-radius:10px;background:var(--surface-2);margin:0 0 8px}
+.lay-in p{margin:0;font-size:11.5px;color:var(--ink-3);line-height:1.5}
+.lay-in label{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12px;color:var(--ink-2)}
+.lay-in input{width:76px;height:28px;border:1px solid var(--line-2);border-radius:7px;background:var(--surface);padding:0 8px;font-family:var(--mono);font-size:12px;text-align:right}
+.tbl-wrap{overflow-x:auto}
+.tbl{width:100%;border-collapse:collapse;font-size:11.5px}
+.tbl th{font-weight:500;color:var(--ink-3);text-align:right;padding:4px 5px;border-bottom:1px solid var(--line);white-space:nowrap}
+.tbl td{padding:4px 5px;text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums;border-bottom:1px solid var(--line);white-space:nowrap}
+.tbl th:first-child,.tbl td:first-child{text-align:left;font-family:var(--font)}
+.rv-foot{margin:0;font-size:11px;color:var(--ink-3);line-height:1.6}
+.comp .st{width:8px;height:8px;border-radius:50%;flex:none}
+.st.fail{background:var(--danger)} .st.warn{background:var(--warn)} .st.pass{background:var(--ok)}
+.verdict{position:absolute;left:calc(var(--side-w) + var(--gut) * 2);top:72px;display:flex;align-items:center;gap:9px;padding:7px 14px 7px 12px;border-radius:999px;border:1px solid var(--line-2);background:var(--glass);cursor:pointer;font-size:12px;z-index:2;max-width:calc(100% - var(--side-w) - var(--gut) * 3);text-align:left}
+.verdict:hover{border-color:var(--ink-3)}
+.verdict b{font-weight:500;white-space:nowrap}
+.verdict .vd-s{color:var(--ink-2);white-space:nowrap}
+.verdict.fail .vd-s{color:var(--danger)}
+.vd-dot{width:7px;height:7px;border-radius:50%;flex:none;background:var(--ink-3)}
+.verdict.fail .vd-dot{background:var(--danger)} .verdict.warn .vd-dot{background:var(--warn)} .verdict.pass .vd-dot{background:var(--ok)}
+.legend{position:absolute;left:calc(var(--side-w) + var(--gut) * 2);top:116px;display:flex;flex-wrap:wrap;gap:4px 14px;font-size:11.5px;color:var(--ink-2);z-index:2}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:7px;height:7px;border-radius:50%;display:inline-block}
+
+/* ---------- 보고 / 설계 화면 전환 ---------- */
+.app[data-view="report"] .design-only{display:none!important}
+.app[data-view="design"] .report-only{display:none!important}
+.app[data-view="report"] .legend{top:74px}
+.viewseg{border:1px solid var(--line-2)}
+.viewseg button{min-width:56px}
+.btn.sm{height:28px;padding:0 12px;font-size:12px}
+.btn[disabled]{opacity:.35;cursor:not-allowed}
+
+/* 보고 화면: 상자 없이 3D 위에 뜨는 글자 */
+#report{gap:0}
+#report .card{background:none;border:0;border-radius:0;-webkit-backdrop-filter:none;backdrop-filter:none;border-top:1px solid var(--line)}
+#report .rp-head{border-top:0}
+.rp-head{padding:6px 0 22px}
+.rp-eyebrow{margin:0 0 8px;font-size:11px;font-weight:300;letter-spacing:.12em;color:var(--ink-3)}
+.rp-title{margin:0;font-family:var(--display);font-size:25px;font-weight:300;line-height:1.3;letter-spacing:.01em;text-wrap:balance}
+.vbox{display:flex;align-items:center;gap:9px;margin:16px 0 22px;font-size:13px}
+.vbox i{width:7px;height:7px;border-radius:50%;background:currentColor;flex:none}
+.vbox b{font-size:14px;font-weight:500}
+.vbox span{color:var(--ink-3);font-size:12.5px}
+.vbox span::before{content:"·";margin-right:8px}
+.vbox.fail{color:var(--danger)} .vbox.warn{color:var(--warn)} .vbox.pass{color:var(--ok)} .vbox.na{color:var(--ink-2)}
+.kf{display:grid;grid-template-columns:1fr 1fr;gap:18px 20px;margin:0}
+.kf dt{font-size:11px;color:var(--ink-3);letter-spacing:.04em;margin-top:6px;order:2}
+.kf div{display:flex;flex-direction:column}
+.kf dd{margin:0;font-family:var(--mono);font-size:34px;font-weight:200;line-height:1;font-variant-numeric:tabular-nums;order:1}
+.kf dd em{font-style:normal;font-family:var(--font);font-size:12px;font-weight:300;color:var(--ink-2);margin-right:5px;vertical-align:4px}
+.kf dd small{font-size:11px;color:var(--ink-3);font-weight:300;margin-left:4px}
+.rp-sec{padding:14px 0 12px}
+.rp-sec h3{margin:0 0 8px;font-size:11px;font-weight:400;letter-spacing:.12em;color:var(--ink-3)}
+.iss{display:flex;gap:12px;width:100%;text-align:left;border:0;border-radius:10px;padding:8px 8px 8px 0;background:none;cursor:pointer;align-items:baseline;font:inherit;color:inherit}
+.iss:hover{background:var(--accent-soft)}
+.iss-b{display:grid;gap:3px;min-width:0}
+.iss-b b{font-size:13px;font-weight:500;line-height:1.45}
+.iss.fail .iss-b b{color:var(--danger)}
+.iss.warn .iss-b b{color:var(--ink)}
+.iss-b span{font-size:12px;font-weight:300;color:var(--ink-3)}
+.num{min-width:18px;font-family:var(--mono);font-size:12px;font-weight:300;color:var(--ink-3);flex:none;font-variant-numeric:tabular-nums}
+.num.fail{color:var(--danger)}
+.num.none{color:var(--ink-3)}
+.lyr .st{width:6px;height:6px;border-radius:50%;flex:none}
+.lyr{display:flex;align-items:center;gap:10px;width:100%;border:0;background:none;padding:6px 8px 6px 0;border-radius:8px;cursor:pointer;text-align:left;font:inherit;color:inherit}
+.lyr:hover{background:var(--accent-soft)}
+.lyr.sel .t{color:var(--ink);text-decoration:underline;text-underline-offset:4px}
+.lyr .sw{width:10px;height:10px}
+.lyr .t{flex:1;min-width:0;font-size:13px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lyr .t small{color:var(--ink-3);font-size:11.5px;margin-left:6px}
+.lyr .d{font-family:var(--mono);font-weight:300;font-size:11.5px;color:var(--ink-3);white-space:nowrap}
+.more-btn{display:flex;align-items:center;justify-content:space-between;width:100%;border:0;background:none;padding:4px 0;font:inherit;font-size:11px;font-weight:400;letter-spacing:.12em;color:var(--ink-3);cursor:pointer}
+.more-btn:hover{color:var(--ink)}
+.more-btn::after{content:"+";font-family:var(--mono);font-size:14px}
+.more-btn[aria-expanded="true"]::after{content:"−"}
+.more-body{padding:10px 0 4px}
+.rp-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:14px 0 4px;font-size:11.5px;color:var(--ink-3);border-top:1px solid var(--line)}
+.rp-foot b{color:var(--ink-2);font-weight:400}
+.ex-tag{display:inline-block;padding:1px 7px;border-radius:999px;border:1px solid var(--warn);color:var(--warn);font-size:10.5px;margin-right:8px}
+.rp-empty{padding:6px 0;font-size:13px;color:var(--ink-2);display:grid;gap:12px;justify-items:start}
+.rp-empty b{font-family:var(--display);font-size:20px;font-weight:400;color:var(--ink)}
+.app[data-view="report"] .vtag{display:none}
+
+/* 설계자 확인 · 게시 */
+.confirm{padding:16px;display:grid;gap:10px}
+.confirm h2{margin:0;font-size:11px;font-weight:400;letter-spacing:.12em;color:var(--ink-3)}
+.cf-row{display:flex;align-items:center;gap:8px;font-size:12.5px;min-height:28px;flex-wrap:wrap}
+.cf-ic{width:15px;height:15px;border-radius:50%;flex:none;display:grid;place-items:center;color:var(--accent-ink);font-size:10px;font-weight:700}
+.cf-row.ok .cf-ic{background:var(--ok)}
+.cf-row.todo .cf-ic{background:var(--warn)}
+.cf-row label{display:flex;align-items:center;gap:8px;cursor:pointer}
+.cf-row input[type=checkbox]{width:15px;height:15px;margin:0;accent-color:var(--ink)}
+.cf-v{margin-left:auto;color:var(--ink-3);font-family:var(--mono);font-weight:300;font-size:11.5px;text-align:right}
+.cf-in{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.cf-in label{display:grid;gap:4px;font-size:11.5px;color:var(--ink-3)}
+.cf-in input{height:34px;border:1px solid var(--line-2);border-radius:10px;padding:0 12px;background:transparent;font-size:13px;min-width:0;color:var(--ink)}
+.cf-msg{margin:0;font-size:12px;color:var(--ink-3)}
+.cf-msg.err{color:var(--danger)} .cf-msg.ok{color:var(--ok)}
+
+/* 3D 라벨: 번호 · 이름 · 재질만, 극세 지시선 */
+.labels{position:absolute;inset:0;pointer-events:none;z-index:1;overflow:hidden}
+.labels svg{position:absolute;inset:0;width:100%;height:100%}
+.labels line{stroke:var(--ink-2);stroke-width:.6;opacity:.7}
+.labels line.fail{stroke:var(--danger);opacity:1}
+.labels circle{fill:var(--ink)}
+.labels circle.fail{fill:var(--danger)}
+.lbl{position:absolute;left:0;top:0;display:flex;align-items:baseline;gap:6px;height:24px;padding:0 4px;font-size:12px;white-space:nowrap;pointer-events:auto;cursor:pointer;color:var(--ink-2);text-shadow:0 1px 3px rgba(0,0,0,.9)}
+.lbl:hover{color:var(--ink)}
+.lbl .num{min-width:0;font-size:11px}
+.lbl small{color:var(--ink-3);font-size:11px;font-weight:300}
+.lbl.fail,.lbl.fail small{color:var(--danger)}
+.lbl.sel{color:var(--ink);text-decoration:underline;text-underline-offset:4px}
+.labels.compact .lbl span:not(.num),.labels.compact .lbl small{display:none}
+.labels.compact .lbl .num{font-size:12px;color:var(--ink)}
+.labels.compact .lbl.fail .num{color:var(--danger)}
+
+/* 재료비 창 */
+.modal{position:fixed;inset:0;z-index:20;display:grid;place-items:center;padding:16px;background:rgba(6,7,9,.6);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+.modal-box{width:min(640px,100%);max-height:calc(100% - 32px);overflow:auto;background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:20px 22px 22px}
+.modal-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px}
+.modal-head h2{margin:0;font-family:var(--display);font-size:18px;font-weight:400}
+.cost-tbl td,.cost-tbl th{padding:8px 6px}
+.cost-tbl input{width:96px;height:30px;border:1px solid var(--line-2);border-radius:999px;background:transparent;padding:0 10px;font-family:var(--mono);font-weight:300;font-size:12px;text-align:right;color:var(--ink)}
+.cost-tbl tfoot td{font-weight:500;border-bottom:0;font-size:13px}
+.cost-bar{display:inline-block;height:3px;border-radius:2px;background:var(--ink-2);vertical-align:middle;margin-right:6px}
+.modal-note{margin:12px 0 0;font-size:11.5px;color:var(--ink-3)}
+
+@media (max-width:860px){
+  :root{--gut:16px}
+  html,body{height:auto}
+  .app{display:flex;flex-direction:column;height:auto;overflow:visible;gap:16px;padding:0 var(--gut) var(--gut)}
+  .topbar{position:static;padding:14px 0 0;pointer-events:auto}
+  .stagewrap{position:relative;inset:auto;order:1;display:flex;flex-direction:column;gap:16px;margin:0 calc(var(--gut) * -1)}
+  .stage{position:relative;inset:auto;height:62vh;min-height:360px}
+  #info{position:static;width:auto;max-height:none;margin:0 var(--gut)}
+  .side{position:static;order:2;width:auto;overflow:visible;padding-right:0}
+  .hint{display:none}
+  .cable-title{display:none}
+  .verdict,.legend{left:var(--gut)}
+  .verdict{top:14px}
+  .legend,.app[data-view="report"] .legend{top:14px}
+  .app[data-view="design"] .legend{top:56px}
+  .tb-actions{width:100%;flex-wrap:nowrap}
+  .tb-actions .select{flex:1;min-width:0}
+  .dial,.vb-sep{display:none}
+  .viewbar{left:50%;bottom:12px;gap:2px;width:max-content;max-width:calc(100% - 24px);border-radius:22px}
+  .seg button{padding:0 10px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="app" id="app" data-view="report">
+  <header class="topbar">
+    <div class="brand">
+      <svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden="true">
+        <circle cx="13" cy="13" r="12" stroke="var(--ink)" stroke-width="1"/>
+        <circle cx="13" cy="13" r="8" stroke="var(--ink-3)" stroke-width="1"/>
+        <circle cx="13" cy="13" r="4" fill="#C07A45"/>
+      </svg>
+      <h1>케이블 단면 3D 뷰어</h1>
+    </div>
+    <div class="seg viewseg" role="group" aria-label="화면" id="viewseg" hidden>
+      <button type="button" data-view="report" aria-pressed="true">보고</button>
+      <button type="button" data-view="design" aria-pressed="false">설계</button>
+    </div>
+    <div class="tb-actions design-only">
+      <select id="sample" class="select" aria-label="예제 케이블"></select>
+      <button class="btn primary" id="openBtn" type="button">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M8 11V2.5M4.5 6 8 2.5 11.5 6M2.5 10.5v3h11v-3"/></svg>
+        DXF 불러오기
+      </button>
+      <input type="file" id="file" accept=".dxf,.dwg" hidden>
+    </div>
+  </header>
+
+  <!-- 보고 화면 -->
+  <aside class="side report-only" id="report" aria-label="보고 요약" aria-live="polite"></aside>
+
+  <!-- 설계 화면 -->
+  <aside class="side design-only" aria-label="설계">
+    <div class="card drop" id="drop" role="button" tabindex="0" aria-label="DXF 파일 선택">
+      <div class="ic"><svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M4 1.8h6.5L14 5.3V16H4z"/><path d="M10.3 1.8v3.7H14"/><circle cx="9" cy="11" r="2.6"/><circle cx="9" cy="11" r="1"/></svg></div>
+      <div><b>DXF 끌어 놓기 · 클릭해서 선택</b><span>DWG는 DXF로 저장 후 사용</span></div>
+    </div>
+
+    <section class="card confirm" id="confirm">
+      <h2>보고 화면 게시</h2>
+      <div class="cf-row" id="cf-layers"><span class="cf-ic"></span><span>레이어 분류</span><span class="cf-v" id="cf-layers-v"></span><button type="button" class="btn sm" id="cf-accept" hidden>추정 확정</button></div>
+      <div class="cf-row" id="cf-spec-row"><label for="cf-spec"><input type="checkbox" id="cf-spec">규격 조건 확인</label><span class="cf-v" id="cf-spec-v"></span></div>
+      <div class="cf-in">
+        <label for="cf-name">설계 담당<input id="cf-name" autocomplete="off"></label>
+        <label for="cf-rev">도면 Rev<input id="cf-rev" autocomplete="off"></label>
+      </div>
+      <button type="button" class="btn primary" id="cf-go" disabled>확인 완료 · 게시</button>
+      <p class="cf-msg" id="cf-msg"></p>
+    </section>
+
+    <section class="card summary" id="summary" aria-live="polite">
+      <p class="fname" id="fname">—</p>
+      <p class="fsub" id="fsub">&nbsp;</p>
+      <dl class="stats">
+        <div><dt>외경</dt><dd id="st-od">—</dd></div>
+        <div><dt>구성요소</dt><dd id="st-n">—</dd></div>
+        <div><dt>중량</dt><dd id="st-w">—</dd></div>
+        <div><dt>닫힌 영역</dt><dd id="st-r">—</dd></div>
+      </dl>
+      <div class="unit-row">
+        <label for="unit">도면 단위</label>
+        <select id="unit" class="select">
+          <option value="1">mm</option>
+          <option value="10">cm</option>
+          <option value="1000">m</option>
+          <option value="25.4">inch</option>
+        </select>
+      </div>
+      <ul class="notes" id="notes"></ul>
+    </section>
+
+    <section class="card" id="tabcard">
+      <div class="tabs" role="tablist" aria-label="보기 선택">
+        <button type="button" role="tab" id="tab-comp" aria-selected="true" aria-controls="panel-comp">구성</button>
+        <button type="button" role="tab" id="tab-iec" aria-selected="false" aria-controls="panel-iec">IEC 60502 검토 <span class="tab-badge" id="iec-badge" hidden></span></button>
+      </div>
+      <div id="panel-comp" role="tabpanel" aria-labelledby="tab-comp">
+        <div class="list-head"><h2>구성 (중심 → 외곽)</h2><span id="list-count"></span></div>
+        <ul class="comp-list" id="complist"></ul>
+      </div>
+      <div id="panel-iec" role="tabpanel" aria-labelledby="tab-iec" hidden>
+        <div class="rv">
+          <div class="rv-set" id="rv-set"></div>
+          <div class="rv-sum" id="rv-sum"></div>
+          <div id="rv-main"></div>
+          <div class="rv-sec">
+            <h3>연입률 · 세부 검토</h3>
+            <div class="lay-in" id="rv-lay"></div>
+            <div id="rv-lay-list"></div>
+          </div>
+          <p class="rv-foot">기준: IEC 60502-1(2021) · 60502-2(2014) · IEC 60228. ‘원문 대조 필요’ 항목은 규격 원문으로 최종 확인.</p>
+        </div>
+      </div>
+    </section>
+
+    <details class="card guide">
+      <summary>레이어 이름 키워드</summary>
+      <div class="guide-body">
+        <table class="kw" id="kwtable"></table>
+      </div>
+    </details>
+  </aside>
+
+  <main class="stagewrap">
+    <div class="stage" id="stage">
+      <div class="loading" id="loading">3D 엔진 불러오는 중</div>
+      <div class="labels" id="labels"><svg id="lbl-svg" aria-hidden="true"></svg></div>
+      <div class="hint" aria-hidden="true"><span><kbd>드래그</kbd> 회전</span><span><kbd>휠</kbd> 확대</span><span><kbd>클릭</kbd> 정보</span></div>
+      <div class="cable-title design-only" id="ctitle"></div>
+      <button type="button" class="verdict design-only" id="verdict" hidden></button>
+      <div class="legend" id="legend" hidden>
+        <span><i style="background:#FF6B61"></i>부적합</span><span><i style="background:#E8B04B"></i>확인 필요</span><span><i style="background:#5FCB9A"></i>적합</span><span><i style="background:#5A6068"></i>판정 없음</span>
+      </div>
+      <div class="viewbar" role="toolbar" aria-label="보기 설정">
+        <div class="seg" role="group" aria-label="모델 형태">
+          <button type="button" data-mode="strip" aria-pressed="true">계단형</button>
+          <button type="button" data-mode="full" aria-pressed="false">원통</button>
+          <button type="button" data-mode="section" aria-pressed="false">단면</button>
+        </div>
+        <div class="seg" role="group" aria-label="색상">
+          <button type="button" data-color="real" aria-pressed="true">실제 색</button>
+          <button type="button" data-color="code" aria-pressed="false" class="design-only">구분 색</button>
+          <button type="button" data-color="check" aria-pressed="false">판정 색</button>
+        </div>
+        <button type="button" class="ibtn" id="lblBtn" aria-pressed="true" title="라벨" aria-label="라벨 표시">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M2.5 3.5h7l4 4.5-4 4.5h-7z"/><circle cx="6" cy="8" r="1.2"/></svg>
+        </button>
+        <label class="twist-sel" for="twist" title="소선 · 선재 꼬임(연입) 표시">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M1.5 4.5c2.6 0 3.9 7 6.5 7s3.9-7 6.5-7"/><path d="M1.5 11.5c2.6 0 3.9-7 6.5-7s3.9 7 6.5 7"/></svg>
+          <select id="twist" class="mini" aria-label="꼬임 표시"></select>
+        </label>
+        <span class="vb-sep"></span>
+        <div class="dial">
+          <label for="azi" class="sr" hidden>회전 각도</label>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true" style="color:var(--ink-3)"><path d="M13.5 8A5.5 5.5 0 1 1 11 3.4"/><path d="M11.3 1v2.8H8.5"/></svg>
+          <input type="range" id="azi" min="0" max="360" step="1" value="0" aria-label="360도 회전">
+          <output id="azi-out" for="azi">0°</output>
+        </div>
+        <button type="button" class="ibtn" id="spin" aria-pressed="true" title="자동 회전" aria-label="자동 회전">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M5 3.2v9.6L12.5 8z"/></svg>
+        </button>
+        <button type="button" class="ibtn" id="reset" title="시점 초기화" aria-label="시점 초기화">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M2.5 8a5.5 5.5 0 1 0 1.7-4"/><path d="M2.3 1.8v2.8h2.8"/></svg>
+        </button>
+      </div>
+      <div class="tip" id="tip" hidden></div>
+      <div class="drop-over" id="dropover" hidden>DXF 파일을 놓으세요</div>
+    </div>
+    <aside class="info" id="info" hidden aria-live="polite"></aside>
+  </main>
+</div>
+
+<div class="modal" id="cost" hidden role="dialog" aria-modal="true" aria-labelledby="cost-t">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h2 id="cost-t">재료비 추정 (1 km 기준)</h2>
+      <button type="button" class="ibtn" id="cost-close" aria-label="닫기"><svg width="14" height="14" viewBox="0 0 14 14" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M2 2l10 10M12 2 2 12"/></svg></button>
+    </div>
+    <div class="tbl-wrap">
+      <table class="tbl cost-tbl">
+        <thead><tr><th>재료</th><th>중량 kg/km</th><th>중량 비중</th><th>단가 원/kg</th><th>금액 원/km</th></tr></thead>
+        <tbody id="cost-body"></tbody>
+        <tfoot><tr><td>합계</td><td id="cost-w"></td><td></td><td></td><td id="cost-sum"></td></tr></tfoot>
+      </table>
+    </div>
+    <p class="modal-note">연입률 반영 · 테이프 겹침 · 공정 손실 미반영. 단가는 이 브라우저에만 저장.</p>
+  </div>
+</div>
+
+<script>
+  // three.js 모듈을 불러오지 못한 경우 안내
+  setTimeout(function(){ if(!window.__cableReady){ var l=document.getElementById('loading'); if(l){ l.classList.add('err'); l.textContent='3D 엔진(three.js)을 불러오지 못했습니다. 네트워크 연결을 확인한 뒤 새로고침하세요.'; } } }, 12000);
+</script>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+/* =====================================================================
+   1. 재질 · 구성요소 라이브러리
+   ===================================================================== */
+const MAT = {
+  CU:{ko:'연동 (구리)',en:'Annealed copper',color:'#C27646',metal:1,rough:.28,dens:8.89,rho:17.241,
+      props:[['밀도','8.89 g/cm³'],['체적저항률 (20°C)','0.017241 Ω·mm²/m'],['도전율','100 % IACS'],['융점','1,083 °C']]},
+  AL:{ko:'알루미늄',en:'Aluminium',color:'#C3C8CD',metal:1,rough:.34,dens:2.70,rho:28.264,
+      props:[['밀도','2.70 g/cm³'],['체적저항률 (20°C)','0.028264 Ω·mm²/m'],['도전율','61 % IACS'],['융점','660 °C']]},
+  STEEL:{ko:'아연도금 강',en:'Galvanized steel',color:'#98A0A6',metal:1,rough:.45,dens:7.85,
+      props:[['밀도','7.85 g/cm³'],['인장강도','≈ 340–500 N/mm²'],['표면 처리','아연 도금 (방식)']]},
+  LEAD:{ko:'납 합금',en:'Lead alloy',color:'#7B8187',metal:.85,rough:.55,dens:11.34,
+      props:[['밀도','11.34 g/cm³'],['융점','327 °C'],['특징','완전 방수 · 유연']]},
+  XLPE:{ko:'가교 폴리에틸렌 (XLPE)',en:'Cross-linked polyethylene',color:'#ECE8DC',metal:0,rough:.36,dens:0.92,
+      props:[['밀도','0.92 g/cm³'],['상시 허용온도','90 °C'],['단락 허용온도','250 °C'],['비유전율 εr','≈ 2.3'],['유전정접 tanδ','≤ 0.001']]},
+  EPR:{ko:'에틸렌 프로필렌 고무 (EPR)',en:'Ethylene propylene rubber',color:'#D39A86',metal:0,rough:.6,dens:1.30,
+      props:[['밀도','≈ 1.3 g/cm³'],['상시 허용온도','90 °C'],['단락 허용온도','250 °C'],['비유전율 εr','≈ 2.8'],['특징','유연성 우수']]},
+  PVC:{ko:'폴리염화비닐 (PVC)',en:'Polyvinyl chloride',color:'#2B3034',metal:0,rough:.5,dens:1.40,
+      props:[['밀도','≈ 1.35–1.45 g/cm³'],['사용 온도','70–90 °C'],['특징','난연성 · 가공성 우수'],['연소 시','할로겐 가스 발생']]},
+  PE:{ko:'폴리에틸렌 (PE)',en:'Polyethylene (HDPE/MDPE)',color:'#24282B',metal:0,rough:.3,dens:0.95,
+      props:[['밀도','≈ 0.93–0.96 g/cm³'],['사용 온도','≈ 80 °C'],['특징','내수 · 내마모성 우수']]},
+  LSZH:{ko:'저독성 난연 폴리올레핀',en:'LSZH polyolefin',color:'#3A3F44',metal:0,rough:.55,dens:1.50,
+      props:[['밀도','≈ 1.4–1.6 g/cm³'],['사용 온도','≈ 90 °C'],['특징','할로겐 프리 · 저연 · 저독성']]},
+  SEMI:{ko:'반도전 컴파운드',en:'Semi-conductive compound',color:'#17191B',metal:0,rough:.72,dens:1.13,
+      props:[['밀도','≈ 1.1–1.15 g/cm³'],['체적저항률','≤ 10³ Ω·m 수준'],['기재','폴리머 + 카본블랙']]},
+  WBTAPE:{ko:'팽윤성 수밀 테이프',en:'Water-swellable tape',color:'#3E4144',metal:0,rough:.95,dens:0.60,
+      props:[['기재','부직포 + 고흡수성 수지(SAP)']]},
+  WBCOMP:{ko:'수밀 컴파운드 · 사',en:'Water-blocking compound',color:'#5B605D',metal:0,rough:.9,dens:1.0,
+      props:[['형태','팽윤성 파우더 · 사 · 컴파운드']]},
+  PP:{ko:'폴리프로필렌 (PP)',en:'Polypropylene',color:'#E6E0CD',metal:0,rough:.85,dens:0.91,
+      props:[['밀도','0.90–0.91 g/cm³'],['형태','PP 연신사 · 필러 로드'],['특징','경량 · 비흡습']]},
+  PET:{ko:'폴리에스터 테이프 (PET)',en:'Polyester tape',color:'#C8CFD4',metal:0,rough:.35,dens:1.38,
+      props:[['밀도','1.38 g/cm³'],['두께','통상 0.025–0.1 mm'],['기능','코어 결속 · 층간 분리']]},
+  NONWOVEN:{ko:'부직포 테이프',en:'Non-woven tape',color:'#E3E5E7',metal:0,rough:.95,dens:0.50,
+      props:[['기재','폴리에스터 부직포'],['기능','쿠션 · 결속']]},
+  MICA:{ko:'마이카 (운모) 테이프',en:'Mica tape',color:'#B7A57A',metal:.2,rough:.5,dens:2.80,
+      props:[['기재','운모 + 유리섬유'],['내열','화염 속에서도 일정 시간 절연 유지']]},
+  VOID:{ko:'공극 (공기)',en:'Void / air gap',color:'#9AA5AB',metal:0,rough:1,dens:0,
+      props:[['비고','재료가 없는 빈 공간']]},
+  UNSET:{ko:'미지정',en:'Unassigned',color:'#9AA3A8',metal:0,rough:.6,dens:0,
+      props:[['비고','재질을 지정하면 특성이 표시됩니다']]}
+};
+
+const COMP = {
+  conductor:{ko:'도체',en:'Conductor',mat:'CU',desc:'전류 통로'},
+  wbcomp:{ko:'수밀 컴파운드',en:'Water-blocking compound',mat:'WBCOMP',desc:'틈새 침수 확산 차단'},
+  cscreen:{ko:'내부 반도전층',en:'Conductor screen',mat:'SEMI',desc:'도체 표면 전계 균일화'},
+  insulation:{ko:'절연체',en:'Insulation',mat:'XLPE',desc:'도체–대지 간 전압 절연'},
+  iscreen:{ko:'외부 반도전층',en:'Insulation screen',mat:'SEMI',desc:'절연체 외부 전계 균일화'},
+  semicon:{ko:'반도전층',en:'Semi-conductive layer',mat:'SEMI',desc:'전계 완화'},
+  wbtape:{ko:'수밀 테이프',en:'Water-blocking tape',mat:'WBTAPE',desc:'흡수 팽창으로 침수 확산 차단'},
+  neutral:{ko:'동심 중성선',en:'Concentric neutral',mat:'CU',desc:'중성선 · 고장전류 귀로'},
+  mscreen:{ko:'금속 차폐층',en:'Metallic screen',mat:'CU',desc:'전계 차폐 · 고장전류 귀로'},
+  binder:{ko:'바인더 테이프',en:'Binder tape',mat:'PET',desc:'코어 · 층 고정'},
+  filler:{ko:'개재물',en:'Filler',mat:'PP',desc:'코어 사이 충전 · 원형 유지'},
+  bedding:{ko:'내부 시스',en:'Inner sheath / Bedding',mat:'PVC',desc:'코어 보호 · 외장 완충'},
+  armour:{ko:'외장',en:'Armour',mat:'STEEL',desc:'기계적 보호'},
+  metalsheath:{ko:'금속 시스',en:'Metallic sheath',mat:'AL',desc:'수분 차단 · 고장전류 귀로'},
+  sheath:{ko:'외부 시스',en:'Outer sheath',mat:'PVC',desc:'외부 환경 보호'},
+  graphite:{ko:'흑연 도포층',en:'Graphite coating',mat:'SEMI',desc:'시스 시험용 도전층'},
+  fire:{ko:'내화층',en:'Fire barrier',mat:'MICA',desc:'화재 시 절연 유지'},
+  void:{ko:'공극',en:'Void',mat:'VOID',desc:'빈 공간'},
+  unknown:{ko:'미지정 층',en:'Unassigned layer',mat:'UNSET',desc:'분류 지정 필요'}
+};
+
+const MAT_DEFAULT_COMP = {CU:'conductor',AL:'conductor',XLPE:'insulation',EPR:'insulation',PVC:'sheath',PE:'sheath',LSZH:'sheath',
+  SEMI:'semicon',PP:'filler',PET:'binder',NONWOVEN:'binder',MICA:'fire',STEEL:'armour',LEAD:'metalsheath',WBTAPE:'wbtape',WBCOMP:'wbcomp',VOID:'void'};
+
+// 레이어 이름 · 도면 텍스트에서 구성요소를 찾는 규칙 (위에서부터 먼저 맞는 것)
+const WB = '(\\bwb\\b|water ?block|swell|수밀|차수|팽윤)';
+const COMP_RULES = [
+  ['void', /\b(void|gap|air)\b|공극|공기/],
+  ['graphite', /graphite|흑연/],
+  ['fire', /\b(fire|mica)\b|내화|운모|마이카/],
+  ['neutral', /neutral|concentric|중성선/],
+  ['binder', /binder|바인더|결속/],
+  ['wbtape', new RegExp(WB + '[^]*?(tape|테이프)|(tape|테이프)[^]*?' + WB)],
+  ['wbcomp', new RegExp(WB)],
+  ['cscreen', /(semi ?con|반도전|\bsc\b)[^]*?(inner|내부|\bcond|도체|\bin\b)|(inner|내부|도체)[^]*?(semi ?con|반도전)|conductor screen|도체 ?차폐/],
+  ['iscreen', /(semi ?con|반도전|\bsc\b)[^]*?(outer|외부|insul|절연|\bout\b)|(outer|외부|절연)[^]*?(semi ?con|반도전)|insulation screen|절연 ?차폐/],
+  ['semicon', /semi ?con|반도전/],
+  ['insulation', /xlpe|\bepr\b|insul|절연/],
+  ['armour', /armou?r|외장|강선|강대|\bswa\b/],
+  ['metalsheath', /metal(lic)? ?sheath|corrugat|주름|연피|\blead\b|\bpb\b|\bal ?sheath|금속 ?시스|알루미늄 ?시스/],
+  ['mscreen', /screen|shield|차폐|cu ?tape|copper ?tape|동 ?테이프/],
+  ['filler', /filler|개재|충실|충전재/],
+  ['bedding', /bedding|inner ?sheath|내부 ?시스|\bbed\b/],
+  ['sheath', /sheath|jacket|시스|외피|자켓|재킷/],
+  ['conductor', /conductor|\bcond\b|strand|milliken|도체|소선|\bcu\b|copper|구리|\bal\b|alumin|알루미늄/]
+];
+const MAT_RULES = [
+  ['SEMI', /semi ?con|반도전|graphite|흑연/],
+  ['XLPE', /xlpe|가교/],
+  ['EPR', /\bepr\b|\bepdm\b/],
+  ['LSZH', /lszh|hffr|lsoh|halogen|폴리올레핀|저독성/],
+  ['PVC', /pvc|vinyl|비닐/],
+  ['PE', /\b(pe|hdpe|mdpe|lldpe|ldpe)\b|polyethylene|폴리에틸렌/],
+  ['PP', /\bpp\b|polypropylene|폴리프로필렌/],
+  ['PET', /\bpet\b|polyester|폴리에스[터테]/],
+  ['NONWOVEN', /non ?woven|부직포/],
+  ['MICA', /mica|운모|마이카/],
+  ['LEAD', /\blead\b|\bpb\b|연피|납/],
+  ['STEEL', /steel|galv|강선|강대|아연/],
+  ['AL', /\bal\b|alumin|알루미늄/],
+  ['CU', /\bcu\b|copper|구리|동선|연동|동 ?테이프/],
+  ['WBTAPE', /swell|팽윤/],
+  ['VOID', /\b(void|air)\b|공기|공극/]
+];
+const COLOR_RULES = [
+  [/갈색|brown/,'#58341F','갈색'],[/흑색|검정|black/,'#1E2123','흑색'],[/회색|gray|grey/,'#8A9095','회색'],
+  [/청색|파랑|blue/,'#2F5E9E','청색'],[/적색|빨강|\bred\b/,'#B03A30','적색'],[/녹황|황녹|green ?yellow/,'#5C9A3C','녹/황'],
+  [/녹색|green/,'#3E8A4F','녹색'],[/황색|노랑|yellow/,'#D6B13A','황색'],[/백색|흰색|white/,'#EEEDE8','백색']
+];
+const PALETTE = ['#3B7DD8','#E07B39','#3BA17C','#D4A93C','#8C6BC8','#D05A6E','#46A9C0','#8F9A3A','#C77C4F','#6C7F93','#B8578F','#5E8F6A'];
+
+const norm = s => ' ' + String(s || '').toLowerCase().replace(/[_\-.\/\\,:;|()\[\]]+/g, ' ') + ' ';
+
+function detect(layerText, labelText){
+  let comp = null, mat = null, src = null, col = null;
+  for (const [t, s] of [[labelText, 'text'], [layerText, 'layer']]){
+    if (!t || !t.trim()) continue;
+    const n = norm(t);
+    if (!comp) for (const [id, re] of COMP_RULES) if (re.test(n)){ comp = id; src = s; break; }
+    if (!mat) for (const [id, re] of MAT_RULES) if (re.test(n)){ mat = id; src = src || s; break; }
+    if (!col) for (const [re, hex, name] of COLOR_RULES) if (re.test(n)){ col = {hex, name}; break; }
+  }
+  if (comp && !mat) mat = COMP[comp].mat;
+  if (mat && !comp) comp = MAT_DEFAULT_COMP[mat] || 'unknown';
+  return {comp, mat, src, col};
+}
+
+/* =====================================================================
+   2. DXF 읽기
+   ===================================================================== */
+function decodeBuffer(buf){
+  const u8 = new Uint8Array(buf);
+  let t = new TextDecoder('utf-8').decode(u8);
+  if (t.indexOf(String.fromCharCode(0xFFFD)) !== -1){ try { t = new TextDecoder('euc-kr').decode(u8); } catch (e) {} }
+  return t;
+}
+
+function parseDXF(text){
+  const L = text.split(/\r\n|\r|\n/);
+  const P = [];
+  for (let i = 0; i + 1 < L.length; ){
+    const c = parseInt(L[i], 10);
+    if (Number.isNaN(c)){ i++; continue; }
+    P.push([c, L[i + 1]]); i += 2;
+  }
+  const header = {}, blocks = {}, entities = [];
+  const is = (k, s) => P[k] && P[k][0] === 0 && P[k][1].trim() === s;
+  for (let i = 0; i < P.length; i++){
+    if (!is(i, 'SECTION')) continue;
+    const name = (P[i + 1] || [0, ''])[1].trim(); i += 2;
+    const start = i;
+    while (i < P.length && !is(i, 'ENDSEC') && !is(i, 'EOF')) i++;
+    const sec = P.slice(start, i);
+    if (name === 'HEADER'){
+      for (let k = 0; k < sec.length; k++) if (sec[k][0] === 9 && sec[k + 1]) header[sec[k][1].trim()] = sec[k + 1][1].trim();
+    } else if (name === 'BLOCKS'){
+      let cur = null, list = [];
+      for (const r of splitRecords(sec)){
+        if (r.type === 'BLOCK'){ cur = {name: get(r, 2, ''), bx: num(r, 10), by: num(r, 20)}; list = []; }
+        else if (r.type === 'ENDBLK'){ if (cur){ cur.ents = buildEntities(list); blocks[cur.name] = cur; } cur = null; }
+        else if (cur) list.push(r);
+      }
+    } else if (name === 'ENTITIES'){
+      entities.push(...buildEntities(splitRecords(sec)));
+    }
+  }
+  return {header, blocks, entities};
+}
+function splitRecords(sec){
+  const out = []; let cur = null;
+  for (const [c, v] of sec){
+    if (c === 0){ cur = {type: v.trim(), p: []}; out.push(cur); }
+    else if (cur) cur.p.push([c, v]);
+  }
+  return out;
+}
+function get(r, code, def){ for (const [c, v] of r.p) if (c === code) return v.trim(); return def; }
+function num(r, code, def = 0){ const v = get(r, code); const f = parseFloat(v); return Number.isFinite(f) ? f : def; }
+function all(r, code){ return r.p.filter(q => q[0] === code).map(q => q[1]); }
+
+function cleanText(s){
+  return String(s)
+    .replace(/\\U\+([0-9A-Fa-f]{4})/g, (m, h) => String.fromCharCode(parseInt(h, 16)))
+    .replace(/\\P/g, ' ').replace(/\\S([^;]*);/g, '$1')
+    .replace(/\\[ACcFfHQTWp][^;]*;/g, '').replace(/\\[LlOoKk]/g, '')
+    .replace(/[{}]/g, '').replace(/%%[cC]/g, 'Ø').replace(/%%[dD]/g, '°').replace(/%%[pP]/g, '±')
+    .replace(/\s+/g, ' ').trim();
+}
+
+function buildEntities(recs){
+  const out = [];
+  for (let k = 0; k < recs.length; k++){
+    const r = recs[k], layer = get(r, 8, '0'), neg = num(r, 230, 1) < 0, sx = neg ? -1 : 1;
+    switch (r.type){
+      case 'CIRCLE': out.push({type:'circle', layer, cx: sx * num(r, 10), cy: num(r, 20), r: num(r, 40)}); break;
+      case 'ARC': {
+        let a0 = num(r, 50), a1 = num(r, 51);
+        if (neg){ const t = a0; a0 = 180 - a1; a1 = 180 - t; }
+        out.push({type:'arc', layer, cx: sx * num(r, 10), cy: num(r, 20), r: num(r, 40), a0, a1}); break;
+      }
+      case 'LINE': out.push({type:'line', layer, p1:[num(r, 10), num(r, 20)], p2:[num(r, 11), num(r, 21)]}); break;
+      case 'LWPOLYLINE': {
+        const verts = [];
+        for (const [c, v] of r.p){
+          if (c === 10) verts.push({x: sx * parseFloat(v), y: 0, b: 0});
+          else if (c === 20 && verts.length) verts[verts.length - 1].y = parseFloat(v);
+          else if (c === 42 && verts.length) verts[verts.length - 1].b = sx * parseFloat(v);
+        }
+        if (verts.length > 1) out.push({type:'poly', layer, verts, closed: !!(num(r, 70) & 1)});
+        break;
+      }
+      case 'POLYLINE': {
+        const verts = []; let j = k + 1;
+        while (j < recs.length && recs[j].type === 'VERTEX'){
+          const v = recs[j];
+          if (!(num(v, 70) & 16)) verts.push({x: sx * num(v, 10), y: num(v, 20), b: sx * num(v, 42)});
+          j++;
+        }
+        k = (recs[j] && recs[j].type === 'SEQEND') ? j : j - 1;
+        const flags = num(r, 70);
+        if (!(flags & (16 | 64)) && verts.length > 1) out.push({type:'poly', layer, verts, closed: !!(flags & 1)});
+        break;
+      }
+      case 'ELLIPSE': out.push({type:'ellipse', layer, cx: num(r, 10), cy: num(r, 20), mx: num(r, 11), my: num(r, 21),
+        ratio: num(r, 40, 1), t0: num(r, 41, 0), t1: num(r, 42, Math.PI * 2)}); break;
+      case 'SPLINE': {
+        const ctrl = [], fit = [];
+        for (const [c, v] of r.p){
+          if (c === 10) ctrl.push([parseFloat(v), 0]); else if (c === 20 && ctrl.length) ctrl[ctrl.length - 1][1] = parseFloat(v);
+          else if (c === 11) fit.push([parseFloat(v), 0]); else if (c === 21 && fit.length) fit[fit.length - 1][1] = parseFloat(v);
+        }
+        out.push({type:'spline', layer, deg: num(r, 71, 3), flags: num(r, 70), knots: all(r, 40).map(parseFloat), ctrl, fit}); break;
+      }
+      case 'TEXT': case 'MTEXT': case 'ATTRIB': {
+        let txt = r.type === 'MTEXT' ? all(r, 3).join('') + (get(r, 1, '') || '') : get(r, 1, '');
+        txt = cleanText(txt);
+        const aligned = r.type === 'TEXT' && (num(r, 72) || num(r, 73)) && get(r, 11) !== undefined;
+        if (txt) out.push({type:'text', layer, x: aligned ? num(r, 11) : num(r, 10), y: aligned ? num(r, 21) : num(r, 20), text: txt});
+        break;
+      }
+      case 'INSERT': out.push({type:'insert', layer, name: get(r, 2, ''), x: num(r, 10), y: num(r, 20), neg,
+        sx: num(r, 41, 1), sy: num(r, 42, 1), rot: num(r, 50), cols: num(r, 70, 1) || 1, rows: num(r, 71, 1) || 1,
+        cs: num(r, 44), rs: num(r, 45)}); break;
+    }
+  }
+  return out;
+}
+
+/* --- 곡선 → 점열 --- */
+const TAU = Math.PI * 2, D2R = Math.PI / 180, SEG = 128;
+function arcPts(cx, cy, r, a0, a1, full){
+  const n = Math.max(8, Math.ceil(Math.abs(a1 - a0) / TAU * SEG));
+  const out = [];
+  for (let k = 0; k <= (full ? n - 1 : n); k++){ const a = a0 + (a1 - a0) * k / n; out.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]); }
+  return out;
+}
+function bulgeTo(out, p1, p2, b){
+  if (Math.abs(b) < 1e-9){ out.push(p2); return; }
+  const th = 4 * Math.atan(b), dx = p2[0] - p1[0], dy = p2[1] - p1[1], ch = Math.hypot(dx, dy);
+  if (ch < 1e-12){ return; }
+  const h = (ch / 2) / Math.tan(th / 2), mx = (p1[0] + p2[0]) / 2, my = (p1[1] + p2[1]) / 2;
+  const cx = mx - h * dy / ch, cy = my + h * dx / ch, R = Math.hypot(p1[0] - cx, p1[1] - cy);
+  const a0 = Math.atan2(p1[1] - cy, p1[0] - cx), n = Math.max(2, Math.ceil(Math.abs(th) / TAU * SEG));
+  for (let k = 1; k < n; k++){ const a = a0 + th * k / n; out.push([cx + R * Math.cos(a), cy + R * Math.sin(a)]); }
+  out.push(p2);
+}
+function polyPts(verts, closed){
+  const n = verts.length, out = [[verts[0].x, verts[0].y]];
+  for (let k = 0; k < (closed ? n : n - 1); k++){ const a = verts[k], b = verts[(k + 1) % n]; bulgeTo(out, [a.x, a.y], [b.x, b.y], a.b); }
+  if (closed) out.pop();
+  return out;
+}
+function bspline(ctrl, knots, deg, samples){
+  const lo = knots[deg], hi = knots[knots.length - deg - 1], out = [];
+  for (let s = 0; s <= samples; s++){
+    const t = lo + (hi - lo) * s / samples;
+    let k = deg; while (k < ctrl.length - 1 && t >= knots[k + 1]) k++;
+    const d = []; for (let j = 0; j <= deg; j++) d.push(ctrl[j + k - deg].slice());
+    for (let r = 1; r <= deg; r++) for (let j = deg; j >= r; j--){
+      const i = j + k - deg, den = knots[i + deg - r + 1] - knots[i], al = den ? (t - knots[i]) / den : 0;
+      d[j] = [(1 - al) * d[j - 1][0] + al * d[j][0], (1 - al) * d[j - 1][1] + al * d[j][1]];
+    }
+    out.push(d[deg]);
+  }
+  return out;
+}
+
+/* --- 블록(INSERT) 전개 및 기본 도형 수집 --- */
+const I2 = [1, 0, 0, 1, 0, 0];
+const mul = (M, N) => [M[0]*N[0] + M[2]*N[1], M[1]*N[0] + M[3]*N[1], M[0]*N[2] + M[2]*N[3], M[1]*N[2] + M[3]*N[3], M[0]*N[4] + M[2]*N[5] + M[4], M[1]*N[4] + M[3]*N[5] + M[5]];
+const tp = (M, p) => [M[0]*p[0] + M[2]*p[1] + M[4], M[1]*p[0] + M[3]*p[1] + M[5]];
+const isSim = M => (Math.abs(M[0] - M[3]) < 1e-9 && Math.abs(M[1] + M[2]) < 1e-9) || (Math.abs(M[0] + M[3]) < 1e-9 && Math.abs(M[1] - M[2]) < 1e-9);
+const scl = M => Math.hypot(M[0], M[1]);
+
+function flatten(ents, blocks, M, depth, inherit, out){
+  for (const e of ents){
+    const layer = (e.layer === '0' && inherit) ? inherit : e.layer;
+    const push = (pts, closed) => { if (pts.length < 2) return; const T = pts.map(p => tp(M, p)); (closed ? out.closed : out.open).push(closed ? {kind:'poly', pts:T, layer} : {pts:T, layer}); };
+    switch (e.type){
+      case 'insert': {
+        const blk = blocks[e.name]; if (!blk || depth > 8) break;
+        const ca = Math.cos(e.rot * D2R), sa = Math.sin(e.rot * D2R);
+        for (let r = 0; r < e.rows; r++) for (let c = 0; c < e.cols; c++){
+          let T = [ca, sa, -sa, ca, e.x, e.y];
+          T = mul(T, [1, 0, 0, 1, c * e.cs, r * e.rs]);
+          T = mul(T, [e.sx, 0, 0, e.sy, 0, 0]);
+          T = mul(T, [1, 0, 0, 1, -blk.bx, -blk.by]);
+          if (e.neg) T = mul([-1, 0, 0, 1, 0, 0], T);
+          flatten(blk.ents, blocks, mul(M, T), depth + 1, layer, out);
+        }
+        break;
+      }
+      case 'circle':
+        if (e.r <= 0) break;
+        if (isSim(M)){ const [x, y] = tp(M, [e.cx, e.cy]); out.closed.push({kind:'circle', cx:x, cy:y, r: e.r * scl(M), layer}); }
+        else push(arcPts(e.cx, e.cy, e.r, 0, TAU, true), true);
+        break;
+      case 'arc': { let a0 = e.a0 * D2R, a1 = e.a1 * D2R; while (a1 <= a0) a1 += TAU; push(arcPts(e.cx, e.cy, e.r, a0, a1), false); break; }
+      case 'line': push([e.p1, e.p2], false); break;
+      case 'poly': push(polyPts(e.verts, e.closed), e.closed); break;
+      case 'ellipse': {
+        let t0 = e.t0, t1 = e.t1; while (t1 <= t0) t1 += TAU;
+        const full = Math.abs(t1 - t0 - TAU) < 1e-6, n = Math.max(16, Math.ceil((t1 - t0) / TAU * SEG)), pts = [];
+        const nx = -e.my * e.ratio, ny = e.mx * e.ratio;
+        for (let k = 0; k <= (full ? n - 1 : n); k++){ const t = t0 + (t1 - t0) * k / n; pts.push([e.cx + Math.cos(t) * e.mx + Math.sin(t) * nx, e.cy + Math.cos(t) * e.my + Math.sin(t) * ny]); }
+        push(pts, full); break;
+      }
+      case 'spline': {
+        let pts;
+        if (e.ctrl.length > e.deg && e.knots.length === e.ctrl.length + e.deg + 1) pts = bspline(e.ctrl, e.knots, e.deg, Math.max(48, e.ctrl.length * 12));
+        else pts = e.fit.length >= 2 ? e.fit : e.ctrl;
+        push(pts, !!(e.flags & 1)); break;
+      }
+      case 'text': { const [x, y] = tp(M, [e.x, e.y]); out.texts.push({x, y, text: e.text, layer}); break; }
+    }
+  }
+}
+
+/* =====================================================================
+   3. 닫힌 영역 → 층(region) → 구성요소(group) 분석
+   ===================================================================== */
+function signedArea(pts){ let s = 0; for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) s += pts[j][0] * pts[i][1] - pts[i][0] * pts[j][1]; return s / 2; }
+function pip(p, pts){
+  let ins = false;
+  for (let i = 0, j = pts.length - 1; i < pts.length; j = i++){
+    const xi = pts[i][0], yi = pts[i][1], xj = pts[j][0], yj = pts[j][1];
+    if (((yi > p[1]) !== (yj > p[1])) && (p[0] < (xj - xi) * (p[1] - yi) / (yj - yi) + xi)) ins = !ins;
+  }
+  return ins;
+}
+function bboxOf(pts){ const b = [Infinity, Infinity, -Infinity, -Infinity]; for (const p of pts){ if (p[0] < b[0]) b[0] = p[0]; if (p[1] < b[1]) b[1] = p[1]; if (p[0] > b[2]) b[2] = p[0]; if (p[1] > b[3]) b[3] = p[1]; } return b; }
+function interiorPoint(pts, bb){
+  let a = 0, cx = 0, cy = 0;
+  for (let i = 0, j = pts.length - 1; i < pts.length; j = i++){ const f = pts[j][0] * pts[i][1] - pts[i][0] * pts[j][1]; a += f; cx += (pts[j][0] + pts[i][0]) * f; cy += (pts[j][1] + pts[i][1]) * f; }
+  if (a){ const c = [cx / (3 * a), cy / (3 * a)]; if (pip(c, pts)) return c; }
+  const y = (bb[1] + bb[3]) / 2 + (bb[3] - bb[1]) * 1e-3, xs = [];
+  for (let i = 0, j = pts.length - 1; i < pts.length; j = i++){ const [xi, yi] = pts[i], [xj, yj] = pts[j]; if ((yi > y) !== (yj > y)) xs.push((xj - xi) * (y - yi) / (yj - yi) + xi); }
+  xs.sort((m, n) => m - n);
+  let best = null, bw = -1;
+  for (let k = 0; k + 1 < xs.length; k += 2){ const w = xs[k + 1] - xs[k]; if (w > bw){ bw = w; best = [(xs[k] + xs[k + 1]) / 2, y]; } }
+  return best || pts[0];
+}
+function chainOpen(opens, tol){
+  const segs = opens.filter(o => o.pts.length >= 2).map(o => ({pts: o.pts, layer: o.layer, used: false}));
+  const cell = tol * 4, grid = new Map(), kx = v => Math.floor(v / cell);
+  const add = (p, s, end) => { const k = kx(p[0]) + ',' + kx(p[1]); if (!grid.has(k)) grid.set(k, []); grid.get(k).push({s, end, p}); };
+  segs.forEach(s => { add(s.pts[0], s, 0); add(s.pts[s.pts.length - 1], s, 1); });
+  const find = p => {
+    const gx = kx(p[0]), gy = kx(p[1]); let best = null, bd = tol;
+    for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++){
+      const arr = grid.get((gx + dx) + ',' + (gy + dy)); if (!arr) continue;
+      for (const e of arr){ if (e.s.used) continue; const d = Math.hypot(e.p[0] - p[0], e.p[1] - p[1]); if (d <= bd){ bd = d; best = e; } }
+    }
+    return best;
+  };
+  const loops = []; let dangling = 0;
+  for (const s of segs){
+    if (s.used) continue; s.used = true;
+    const chain = s.pts.slice(), lc = {[s.layer]: 1}; let closed = false;
+    for (let guard = 0; guard < 200000; guard++){
+      const end = chain[chain.length - 1];
+      if (chain.length > 2 && Math.hypot(end[0] - chain[0][0], end[1] - chain[0][1]) <= tol){ closed = true; break; }
+      const e = find(end); if (!e) break;
+      e.s.used = true; lc[e.s.layer] = (lc[e.s.layer] || 0) + 1;
+      const p = e.end === 0 ? e.s.pts : e.s.pts.slice().reverse();
+      for (let k = 1; k < p.length; k++) chain.push(p[k]);
+    }
+    if (closed && chain.length >= 4){ chain.pop(); loops.push({pts: chain, layer: Object.keys(lc).sort((a, b) => lc[b] - lc[a])[0]}); }
+    else dangling++;
+  }
+  return {loops, dangling};
+}
+function mkContour(src, tol){
+  if (src.kind === 'circle'){
+    const {cx, cy, r} = src;
+    return {kind:'circle', cx, cy, r, layer: src.layer, area: Math.PI * r * r, bb:[cx - r, cy - r, cx + r, cy + r], ip:[cx, cy]};
+  }
+  const pts = [];
+  for (const p of src.pts){ const q = pts[pts.length - 1]; if (!q || Math.hypot(p[0] - q[0], p[1] - q[1]) > tol * 0.01) pts.push(p); }
+  while (pts.length > 2 && Math.hypot(pts[0][0] - pts[pts.length - 1][0], pts[0][1] - pts[pts.length - 1][1]) <= tol * 0.01) pts.pop();
+  if (pts.length < 3) return null;
+  const bb = bboxOf(pts);
+  return {kind:'poly', pts, layer: src.layer, area: Math.abs(signedArea(pts)), bb, ip: interiorPoint(pts, bb)};
+}
+function containsPt(A, p){
+  if (p[0] < A.bb[0] || p[0] > A.bb[2] || p[1] < A.bb[1] || p[1] > A.bb[3]) return false;
+  return A.kind === 'circle' ? Math.hypot(p[0] - A.cx, p[1] - A.cy) < A.r : pip(p, A.pts);
+}
+function contains(A, B, tol){
+  if (B.bb[0] < A.bb[0] - tol || B.bb[1] < A.bb[1] - tol || B.bb[2] > A.bb[2] + tol || B.bb[3] > A.bb[3] + tol) return false;
+  if (A.kind === 'circle' && B.kind === 'circle') return Math.hypot(A.cx - B.cx, A.cy - B.cy) + B.r <= A.r + tol;
+  return containsPt(A, B.ip);
+}
+const centerOf = c => c.kind === 'circle' ? [c.cx, c.cy] : [(c.bb[0] + c.bb[2]) / 2, (c.bb[1] + c.bb[3]) / 2];
+
+function analyze(prims){
+  const notes = [];
+  const bb = [Infinity, Infinity, -Infinity, -Infinity];
+  const ext = (x, y) => { if (x < bb[0]) bb[0] = x; if (y < bb[1]) bb[1] = y; if (x > bb[2]) bb[2] = x; if (y > bb[3]) bb[3] = y; };
+  for (const c of prims.closed){ if (c.kind === 'circle'){ ext(c.cx - c.r, c.cy - c.r); ext(c.cx + c.r, c.cy + c.r); } else c.pts.forEach(p => ext(p[0], p[1])); }
+  for (const o of prims.open) o.pts.forEach(p => ext(p[0], p[1]));
+  const extent = Math.max(bb[2] - bb[0], bb[3] - bb[1]);
+  if (!(extent > 0)) return {error:'원 · 선 없음 — 모델 공간(ENTITIES)에 단면이 있는지 확인'};
+  const tol = extent * 1e-4;
+
+  const {loops, dangling} = chainOpen(prims.open, tol);
+  const C = [], seen = new Set(), q = v => Math.round(v / tol);
+  for (const src of [...prims.closed, ...loops.map(l => ({kind:'poly', pts: l.pts, layer: l.layer}))]){
+    const c = mkContour(src, tol);
+    if (!c || c.area < extent * extent * 1e-10) continue;
+    const key = c.kind === 'circle' ? `c${q(c.cx)},${q(c.cy)},${q(c.r)}`
+      : `p${q((c.bb[0] + c.bb[2]) / 2)},${q((c.bb[1] + c.bb[3]) / 2)},${q(c.bb[2] - c.bb[0])},${q(c.bb[3] - c.bb[1])},${Math.round(c.area / (tol * extent))}`;
+    if (seen.has(key)) continue;
+    seen.add(key); c.id = C.length; C.push(c);
+  }
+  if (!C.length) return {error:'닫힌 영역 없음 — 층 경계를 원 · 닫힌 폴리선으로 작성'};
+
+  // 포함 관계 트리: 자신을 포함하는 가장 작은 윤곽이 부모
+  const S = C.slice().sort((a, b) => b.area - a.area);
+  for (let j = 0; j < S.length; j++){
+    const B = S[j]; B.parent = null;
+    for (let i = j - 1; i >= 0; i--){ const A = S[i]; if (A.area <= B.area * (1 + 1e-9)) continue; if (contains(A, B, tol)){ B.parent = A; break; } }
+  }
+  // 도면 테두리(자식이 있는 축 정렬 사각형) 제외
+  const hasKids = new Set(C.filter(c => c.parent).map(c => c.parent.id));
+  const isRect = c => c.kind === 'poly' && c.pts.length === 4 && c.pts.every((p, i) => { const n = c.pts[(i + 1) % 4]; return Math.abs(p[0] - n[0]) < tol || Math.abs(p[1] - n[1]) < tol; });
+  let frames = 0;
+  for (const c of S){
+    if (c.parent && c.parent.frame) c.parent = null;
+    if (!c.parent && isRect(c) && hasKids.has(c.id)){ c.frame = true; frames++; }
+  }
+  const kids = new Map(C.map(c => [c.id, []]));
+  for (const c of C) if (c.parent) kids.get(c.parent.id).push(c);
+
+  const roots = S.filter(c => !c.parent && !c.frame);
+  const main = roots[0], mR = Math.sqrt(main.area / Math.PI), mc = centerOf(main);
+  const keptRoots = roots.filter(c => c === main || (c.area >= main.area * 0.2 && Math.hypot(centerOf(c)[0] - mc[0], centerOf(c)[1] - mc[1]) <= mR * 4));
+  const keep = new Set(), stack = [...keptRoots];
+  while (stack.length){ const c = stack.pop(); keep.add(c); stack.push(...kids.get(c.id)); }
+  const dropped = C.filter(c => !keep.has(c) && !c.frame).length;
+
+  const ub = [Infinity, Infinity, -Infinity, -Infinity];
+  keptRoots.forEach(c => { ub[0] = Math.min(ub[0], c.bb[0]); ub[1] = Math.min(ub[1], c.bb[1]); ub[2] = Math.max(ub[2], c.bb[2]); ub[3] = Math.max(ub[3], c.bb[3]); });
+  const center = (keptRoots.length === 1 && main.kind === 'circle') ? [main.cx, main.cy] : [(ub[0] + ub[2]) / 2, (ub[1] + ub[3]) / 2];
+  const rmax = c => {
+    if (c.kind === 'circle') return Math.hypot(c.cx - center[0], c.cy - center[1]) + c.r;
+    let m = 0; for (const p of c.pts){ const d = Math.hypot(p[0] - center[0], p[1] - center[1]); if (d > m) m = d; } return m;
+  };
+  let R = 0; keptRoots.forEach(c => { R = Math.max(R, rmax(c)); });
+
+  const regions = [];
+  for (const c of keep){
+    const holes = kids.get(c.id).filter(k => keep.has(k));
+    const area = c.area - holes.reduce((s, h) => s + h.area, 0);
+    if (area <= main.area * 1e-6) continue;
+    const rg = {id: regions.length, outer: c, holes, area, rMax: rmax(c), labels: []};
+    regions.push(rg); c.region = rg;
+  }
+
+  // 도면 텍스트 → 가장 작은 포함 영역의 라벨
+  const outside = [];
+  for (const t of prims.texts){
+    let best = null;
+    for (const c of keep){ if (best && c.area >= best.area) continue; if (containsPt(c, [t.x, t.y])) best = c; }
+    if (best && best.region) best.region.labels.push(t.text); else if (!best) outside.push(t.text);
+  }
+  const title = outside.find(s => /kv|sq\b|㎟|mm2|mm²|케이블|cable/i.test(s)) || '';
+
+  // 같은 레이어 + 같은 형상 → 하나의 구성요소
+  const qa = a => Math.round(Math.log(a) / Math.log(1.03));
+  const gmap = new Map();
+  for (const rg of regions){
+    const o = rg.outer, dot = o.kind === 'circle' && rg.holes.length === 0;
+    const sig = dot ? 'd' + Math.round(o.r / (R * 0.004)) : 'a' + qa(rg.area) + 'h' + rg.holes.length + (o.kind === 'circle' ? 'c' : 'p' + qa(o.area));
+    const key = o.layer + '|' + sig;
+    if (!gmap.has(key)) gmap.set(key, {key, regions: [], layers: new Set(), labels: [], dot});
+    const g = gmap.get(key); g.regions.push(rg); g.layers.add(o.layer); g.labels.push(...rg.labels); rg.group = g;
+  }
+  const groups = [...gmap.values()];
+  for (const g of groups){
+    g.rMax = Math.max(...g.regions.map(r => r.rMax));
+    g.area = g.regions.reduce((s, r) => s + r.area, 0);
+    g.count = g.regions.length;
+    g.labels = [...new Set(g.labels)];
+  }
+  // 계단 단계: 반경이 비슷하면 같은 단계, 단 다른 층을 감싸는 층은 반드시 한 단계 바깥
+  groups.sort((a, b) => a.rMax - b.rMax || a.area - b.area);
+  let lv = -1, lr = -Infinity;
+  for (const g of groups){
+    let L = g.rMax - lr > R * 0.012 ? lv + 1 : lv;
+    for (const rg of g.regions) for (const h of rg.holes){ const hg = h.region && h.region.group; if (hg && hg !== g && hg.level !== undefined) L = Math.max(L, hg.level + 1); }
+    if (L > lv){ lv = L; lr = g.rMax; }
+    g.level = L;
+  }
+  const nLevels = lv + 1;
+
+  groups.forEach((g, i) => {
+    g.id = i; g.visible = true; g.len = 0; g.target = 0;
+    const d = detect([...g.layers].join(' '), g.labels.join(' '));
+    g.color = d.col;
+    if (d.comp){ g.comp = d.comp; g.mat = d.mat; g.source = d.src; }
+  });
+  // 인식하지 못한 층은 위치·형상으로 추정
+  for (const g of groups){
+    if (g.comp) continue;
+    const r0 = g.regions[0], par = r0.outer.parent && r0.outer.parent.region;
+    let comp = 'unknown';
+    if (r0.holes.length >= 6 && r0.holes.every(h => h.region && h.region.group && h.region.group.dot)) comp = 'void';
+    else if (g.dot && g.count >= 6) comp = (g.level === 0 || (par && par.group && par.group.level === 0)) ? 'conductor' : 'mscreen';
+    else if (g.level === 0) comp = 'conductor';
+    else if (g.level === nLevels - 1 && !g.dot) comp = 'sheath';
+    else if (r0.holes.filter(h => h.area >= r0.outer.area * 0.05).length >= 2) comp = 'filler';
+    g.comp = comp; g.mat = COMP[comp].mat; g.source = comp === 'unknown' ? 'none' : 'guess';
+  }
+
+  const nUnknown = groups.filter(g => g.source === 'none').length, nGuess = groups.filter(g => g.source === 'guess').length;
+  if (nUnknown) notes.push(['warn', `미지정 층 ${nUnknown}개 — 분류 지정 필요`]);
+  if (nGuess) notes.push(['warn', `위치로 추정한 층 ${nGuess}개`]);
+  if (dangling) notes.push(['warn', `닫히지 않은 선 ${dangling}개 제외`]);
+  if (dropped) notes.push(['warn', `케이블 외부 도형 ${dropped}개 제외`]);
+  if (frames) notes.push(['warn', `도면 테두리 ${frames}개 제외`]);
+  return {regions, groups, R, center, nLevels, notes, title, contours: C.length};
+}
+
+/* =====================================================================
+   4. 3D 형상 생성
+   ===================================================================== */
+function contourPts(c, m){
+  if (c._n) return c._n;
+  const [ox, oy] = m.center, s = 1 / m.R;
+  let pts;
+  if (c.kind === 'circle'){
+    const n = Math.max(24, Math.min(160, Math.round(24 + 136 * (c.r / m.R))));
+    pts = [];
+    for (let k = 0; k < n; k++){ const a = k / n * TAU; pts.push([(c.cx + c.r * Math.cos(a) - ox) * s, (c.cy + c.r * Math.sin(a) - oy) * s]); }
+  } else pts = c.pts.map(p => [(p[0] - ox) * s, (p[1] - oy) * s]);
+  return (c._n = pts);
+}
+const nrm2 = (x, y) => { const l = Math.hypot(x, y) || 1; return [x / l, y / l]; };
+/* z=0 ~ z=1 로 돌출한 형상 (길이는 mesh.scale.z 로 조절).
+   tw가 있으면 단면을 (cx, cy) 둘레로 z에 비례해 돌려 나선(꼬임) 형상을 만든다.
+   회전각은 tw.rate(장면 단위 길이당 rad) × L(이 형상을 그릴 길이)로 미리 계산해 둔다. */
+function buildGeo(outer, holes, tw, L, internal){
+  const O = signedArea(outer) < 0 ? outer.slice().reverse() : outer;
+  const H = holes.map(h => signedArea(h) > 0 ? h.slice().reverse() : h);
+  const loops = [[O, outer], ...H.map((h, i) => [h, holes[i]])];
+  const tris = THREE.ShapeUtils.triangulateShape(O.map(p => new THREE.Vector2(p[0], p[1])), H.map(h => h.map(p => new THREE.Vector2(p[0], p[1]))));
+  const total = tw && tw.rate ? tw.rate * L : 0;
+  const M = total ? Math.min(200, Math.max(2, Math.ceil(Math.abs(total) / (6 * D2R)))) : 1;
+  const cx = tw ? tw.cx : 0, cy = tw ? tw.cy : 0;
+  const rot = (p, a) => { if (!a) return p; const c = Math.cos(a), s = Math.sin(a), dx = p[0] - cx, dy = p[1] - cy; return [cx + dx * c - dy * s, cy + dx * s + dy * c]; };
+  const rotV = (v, a) => { if (!a) return v; const c = Math.cos(a), s = Math.sin(a); return [v[0] * c - v[1] * s, v[0] * s + v[1] * c]; };
+  const all = O.concat(...H), N = all.length, pos = [], nor = [], idx = [], lines = [];
+  for (const p of all){ const q = rot(p, total); pos.push(q[0], q[1], 1); nor.push(0, 0, 1); }
+  for (const p of all){ pos.push(p[0], p[1], 0); nor.push(0, 0, -1); }
+  for (const [a, b, c] of tris){
+    const A = all[a], B = all[b], Cc = all[c];
+    if ((B[0] - A[0]) * (Cc[1] - A[1]) - (B[1] - A[1]) * (Cc[0] - A[0]) >= 0) idx.push(a, b, c, N + a, N + c, N + b);
+    else idx.push(a, c, b, N + a, N + b, N + c);
+  }
+  const cosT = Math.cos(40 * D2R);
+  for (const [Lp, orig] of loops){
+    const n = Lp.length, en = [], drawEdge = !(internal && internal.has(orig));
+    for (let i = 0; i < n; i++){ const p = Lp[i], q2 = Lp[(i + 1) % n]; en.push(nrm2(q2[1] - p[1], -(q2[0] - p[0]))); }
+    for (let i = 0; i < n; i++){
+      const p = Lp[i], q2 = Lp[(i + 1) % n], e = en[i], ep = en[(i - 1 + n) % n], ex = en[(i + 1) % n];
+      const sharp = e[0] * ep[0] + e[1] * ep[1] <= cosT;
+      const nA = sharp ? e : nrm2(e[0] + ep[0], e[1] + ep[1]);
+      const nB = (e[0] * ex[0] + e[1] * ex[1] > cosT) ? nrm2(e[0] + ex[0], e[1] + ex[1]) : e;
+      const base = pos.length / 3;
+      for (let j = 0; j <= M; j++){
+        const z = j / M, a = total * z, P = rot(p, a), Q = rot(q2, a), NA = rotV(nA, a), NB = rotV(nB, a);
+        pos.push(P[0], P[1], z, Q[0], Q[1], z);
+        nor.push(NA[0], NA[1], 0, NB[0], NB[1], 0);
+        if (j < M){ const v = base + j * 2; idx.push(v, v + 1, v + 3, v, v + 3, v + 2); }
+      }
+      if (!drawEdge) continue;
+      const P1 = rot(p, total), Q1 = rot(q2, total);
+      lines.push(p[0], p[1], 0, q2[0], q2[1], 0, P1[0], P1[1], 1, Q1[0], Q1[1], 1);
+      if (sharp) for (let j = 0; j < M; j++){ const A = rot(p, total * j / M), B = rot(p, total * (j + 1) / M); lines.push(A[0], A[1], j / M, B[0], B[1], (j + 1) / M); }
+    }
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+  geo.setIndex(idx);
+  const lineGeo = new THREE.BufferGeometry();
+  lineGeo.setAttribute('position', new THREE.Float32BufferAttribute(lines, 3));
+  return {geo, lineGeo};
+}
+
+/* --- 꼬임(연입) 계획: 어떤 영역을 어느 중심으로, 어떤 연피치로 돌릴지 --- */
+const TWIST_MULT = {real: 1, boost: 3, off: 0};
+const TWIST_OPTS = '<option value="real">꼬임 실제</option><option value="boost">꼬임 ×3</option><option value="off">꼬임 끔</option>';
+const dirTxt = d => d > 0 ? 'Z (오른꼬임)' : d < 0 ? 'S (왼꼬임)' : '직선';
+function twistPlan(){
+  const S = model.iec, s = 1 / model.R, [ox, oy] = model.center, mult = TWIST_MULT[state.twist] || 0;
+  const unit = new Map();   // 윤곽 → 꼬임 규격
+  // 1) 소선 · 동심선 · 외장선: 같은 부모 안의 원형 선재를 반경별 층으로 묶어 층마다 연피치 적용
+  for (const g of model.groups){
+    if (!g.dot || g.count < 3) continue;
+    const byParent = new Map();
+    for (const rg of g.regions){ const p = rg.outer.parent; if (!byParent.has(p)) byParent.set(p, []); byParent.get(p).push(rg); }
+    for (const [p, regs] of byParent){
+      if (regs.length < 3) continue;
+      const pc = p ? asCircle(p) : null, cen = pc ? [pc.cx, pc.cy] : model.center;
+      const items = regs.map(rg => ({rg, r: Math.hypot(rg.outer.cx - cen[0], rg.outer.cy - cen[1]), d: 2 * rg.outer.r})).sort((a, b) => a.r - b.r);
+      const dAvg = items.reduce((a, x) => a + x.d, 0) / items.length, layers = [];
+      for (const x of items){ const L = layers[layers.length - 1]; if (L && x.r - L.r0 < dAvg * 0.35) L.items.push(x); else layers.push({r0: x.r, items: [x]}); }
+      const isCond = g.comp === 'conductor', lam = isCond ? S.lay.cond : (S.lay.wire[g.id] ?? (g.comp === 'armour' ? 10 : 12));
+      const hasCenter = layers[0].r0 < dAvg * 0.3, nL = layers.length;
+      layers.forEach((L, i) => {
+        const n = L.items.length, rm = L.items.reduce((a, x) => a + x.r, 0) / n, d = L.items.reduce((a, x) => a + x.d, 0) / n;
+        const center = rm < d * 0.3, lay = lam * (2 * rm + d), tan = Math.PI * 2 * rm / lay;
+        // 도체는 가장 바깥층을 Z로 두고 안쪽으로 S/Z 교대, 중심 소선은 직선
+        const dir = center ? 0 : isCond ? ((nL - 1 - i) % 2 === 0 ? 1 : -1) : (g.comp === 'armour' ? 1 : -1);
+        const spec = {rate: dir * TAU / (lay * s) * mult, cx: (cen[0] - ox) * s, cy: (cen[1] - oy) * s, key: `${g.id}:${i}`, order: i,
+          info: {name: center ? '중심 소선' : isCond ? `${hasCenter ? i : i + 1}층` : nameOf(g), n, dir, lay: lay * model.unit, k: Math.sqrt(1 + tan * tan), alpha: Math.atan(tan) * 180 / Math.PI}};
+        for (const x of L.items) unit.set(x.rg.outer, spec);
+      });
+    }
+  }
+  // 2) 다심 코어 연합: 코어 전체(도체 · 절연 · 코어별 차폐)를 케이블 중심 둘레로 돌림
+  const ci = conductorInfo(S);
+  if (ci && ci.cores >= 2 && ci.layLen){
+    const spec = {rate: TAU / (ci.layLen * s) * mult, cx: 0, cy: 0, key: 'core', order: 0,
+      info: {name: '코어 연합', n: ci.cores, dir: 1, lay: ci.layLen * model.unit, k: ci.kLay, alpha: Math.atan(Math.PI * ci.Dp / ci.layLen) * 180 / Math.PI}};
+    const kids = c => c.region ? c.region.holes : [];
+    const mark = c => { unit.set(c, spec); kids(c).forEach(mark); };
+    for (const rg of model.groups.filter(g => g.comp === 'insulation').flatMap(g => g.regions)){
+      let top = rg.outer;
+      while (top.parent && top.parent.region && kids(top.parent).length === 1) top = top.parent;
+      mark(top);
+    }
+  }
+  // 3) 영역별 적용: 자기 윤곽이 꼬임 단위면 그대로, 아니면 구멍(안에 든 선재)을 따라 돌림
+  const tolC = model.R * 1e-3;
+  const concentric = (h, o) => { const a = asCircle(h), b = asCircle(o); return a && b && Math.hypot(a.cx - b.cx, a.cy - b.cy) < tolC; };
+  const plan = [];
+  for (const rg of model.regions){
+    const g = rg.group, own = unit.get(rg.outer);
+    const base = {g, rg, outer: contourPts(rg.outer, model), holes: rg.holes.map(h => contourPts(h, model)), internal: null};
+    if (own){ plan.push({...base, tw: own}); continue; }
+    const hs = [...new Set(rg.holes.map(h => unit.get(h)).filter(Boolean))];
+    if (!hs.length){ plan.push({...base, tw: null}); continue; }
+    if (hs.length === 1 && rg.holes.every(h => unit.get(h) || concentric(h, rg.outer))){ plan.push({...base, tw: {...hs[0], info: null}}); continue; }
+    const bands = splitBands(rg, unit, tolC);
+    if (bands) bands.forEach(b => plan.push({...b, g, rg}));
+    else plan.push({...base, tw: null});
+  }
+  return plan;
+}
+// 층마다 꼬임 속도가 다른 선재를 품은 영역(소선 사이 충전재 등)을 층별 고리 띠로 나눠 각각 돌림
+function splitBands(rg, unit, tolC){
+  const oc = asCircle(rg.outer); if (!oc) return null;
+  let rin = 0, rinHole = null;
+  const layers = new Map();
+  for (const h of rg.holes){
+    const sp = unit.get(h), hc = asCircle(h); if (!hc) return null;
+    const dist = Math.hypot(hc.cx - oc.cx, hc.cy - oc.cy);
+    if (!sp){ if (dist > tolC) return null; if (hc.r > rin){ rin = hc.r; rinHole = h; } continue; }
+    if (!layers.has(sp)) layers.set(sp, {sp, holes: [], lo: Infinity, hi: 0});
+    const L = layers.get(sp); L.holes.push(h); L.lo = Math.min(L.lo, dist - hc.r); L.hi = Math.max(L.hi, dist + hc.r);
+  }
+  const Ls = [...layers.values()].sort((a, b) => a.lo - b.lo);
+  if (rin > 0 && Ls[0].lo < rin - tolC) return null;
+  const B = [rin];
+  for (let i = 1; i < Ls.length; i++){ if (Ls[i].lo <= Ls[i - 1].hi) return null; B.push((Ls[i - 1].hi + Ls[i].lo) / 2); }
+  const s = 1 / model.R, [ox, oy] = model.center;
+  const circ = r => { const n = Math.max(24, Math.min(160, Math.round(24 + 136 * (r / model.R)))), pts = []; for (let k = 0; k < n; k++){ const a = k / n * TAU; pts.push([(oc.cx + r * Math.cos(a) - ox) * s, (oc.cy + r * Math.sin(a) - oy) * s]); } return pts; };
+  const bnd = B.map((r, i) => i === 0 ? (rinHole ? contourPts(rinHole, model) : null) : circ(r));
+  bnd.push(contourPts(rg.outer, model));
+  return Ls.map((L, i) => {
+    const outer = bnd[i + 1], inner = bnd[i], internal = new Set();
+    if (i + 1 < Ls.length) internal.add(outer);
+    if (i > 0) internal.add(inner);
+    return {outer, holes: [...(inner ? [inner] : []), ...L.holes.map(h => contourPts(h, model))], internal, tw: {...L.sp, info: null}};
+  });
+}
+
+/* =====================================================================
+   5. 장면 · 카메라 · 선택
+   ===================================================================== */
+const $ = s => document.querySelector(s);
+const stageEl = $('#stage');
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const renderer = new THREE.WebGLRenderer({antialias: true, alpha: true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.12;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.setClearColor(0x000000, 0);
+stageEl.prepend(renderer.domElement);
+const canvas = renderer.domElement;
+
+const scene = new THREE.Scene();
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture;
+
+const camera = new THREE.PerspectiveCamera(30, 1, 0.01, 400);
+const controls = new OrbitControls(camera, canvas);
+controls.enableDamping = true; controls.dampingFactor = 0.08;
+controls.minDistance = 1.2; controls.maxDistance = 60;
+controls.autoRotateSpeed = 1.1; controls.autoRotate = !reduceMotion;
+
+const keyLight = new THREE.DirectionalLight(0xffffff, 1.5);
+keyLight.position.set(2.5, 9, 4); keyLight.castShadow = true;
+keyLight.shadow.mapSize.set(2048, 2048); keyLight.shadow.bias = -0.0005; keyLight.shadow.normalBias = 0.02;
+Object.assign(keyLight.shadow.camera, {left: -8, right: 8, top: 8, bottom: -8, near: 0.5, far: 30});
+scene.add(keyLight);
+const fillLight = new THREE.DirectionalLight(0xffffff, 0.4); fillLight.position.set(-6, 2, -4); scene.add(fillLight);
+// 어두운 배경에서 윤곽이 묻히지 않도록 뒤쪽 위에서 비추는 테두리 조명
+const rimLight = new THREE.DirectionalLight(0xdfe8ff, 1.1); rimLight.position.set(-2, 6, -9); scene.add(rimLight);
+scene.add(new THREE.HemisphereLight(0xffffff, 0x8a9096, 0.35));
+const floorMat = new THREE.ShadowMaterial({opacity: 0.14});
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(80, 80), floorMat);
+floor.rotation.x = -Math.PI / 2; floor.position.y = -1.3; floor.receiveShadow = true; scene.add(floor);
+
+const holder = new THREE.Group(); scene.add(holder);
+const cable = new THREE.Group(); cable.rotation.y = Math.PI / 2; holder.add(cable);   // 케이블 축(로컬 z) → 화면 가로(x)
+
+let model = null, meshes = [];
+const state = {mode: 'strip', color: 'real', twist: 'real', sel: null, selMesh: null, hover: null};
+const accent = new THREE.Color();
+const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const isDark = () => true;   // 나이트 단일 테마
+
+function baseColor(g){
+  if (state.color === 'check') return CHECK_COL[g.status] || CHECK_COL.none;
+  if (state.color === 'code' || g.mat === 'UNSET') return g.pal;
+  const m = MAT[g.mat];
+  return (g.color && !m.metal) ? g.color.hex : m.color;
+}
+function applyAppearance(g){
+  const m = MAT[g.mat], mt = g.mtl, code = state.color !== 'real';
+  const sel = state.sel, isSel = sel === g, faded = !!sel && !isSel, isVoid = g.comp === 'void';
+  mt.color.set(baseColor(g));
+  mt.metalness = code ? 0 : m.metal;
+  mt.roughness = code ? 0.55 : m.rough;
+  mt.clearcoat = (!code && !m.metal && m.rough < 0.6) ? 0.35 : 0; mt.clearcoatRoughness = 0.35;
+  mt.envMapIntensity = (m.metal && !code) ? 1 : 0.6;
+  mt.visible = !isVoid || isSel || code;
+  mt.transparent = faded || isVoid;
+  mt.opacity = isVoid ? (isSel ? 0.55 : 0.3) : (faded ? 0.13 : 1);
+  mt.depthWrite = !mt.transparent;
+  // 선택 강조는 재질 색을 바꾸지 않도록 흰빛만 살짝 더하고, 윤곽선을 강조색으로
+  mt.emissive.set(isSel || state.hover === g ? 0xffffff : 0x000000);
+  mt.emissiveIntensity = isSel ? 0.06 : 0.05;
+  mt.needsUpdate = true;
+  if (isSel) g.lineMat.color.copy(accent); else g.lineMat.color.set(cssVar('--edge'));
+  g.lineMat.opacity = isSel ? 0.95 : faded ? 0.04 : (isVoid ? 0.06 : 0.12);
+  for (const mesh of g.meshes){ mesh.visible = g.visible; mesh.castShadow = !mt.transparent; }
+}
+const applyAll = () => model && model.groups.forEach(applyAppearance);
+
+function syncTheme(){
+  accent.set(cssVar('--accent') || '#AE5F2A');
+  floorMat.opacity = isDark() ? 0.45 : 0.14;
+  applyAll();
+}
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', syncTheme);
+new MutationObserver(syncTheme).observe(document.documentElement, {attributes: true, attributeFilter: ['data-theme']});
+
+function buildMeshes(){
+  model.groups.forEach((g, i) => {
+    g.pal = PALETTE[i % PALETTE.length];
+    g.mtl = new THREE.MeshPhysicalMaterial();
+    g.lineMat = new THREE.LineBasicMaterial({transparent: true, opacity: 0.18});
+    g.meshes = [];
+  });
+  computeLengths(true);
+  rebuildGeometry();
+}
+// 꼬임은 목표 길이 기준으로 형상에 새겨 두므로, 길이·연피치·표시 방식이 바뀌면 형상을 다시 만든다
+function rebuildGeometry(){
+  const selRg = state.selMesh && state.selMesh.userData.rg;
+  for (const m of meshes){ m.geometry.dispose(); m.children.forEach(c => c.geometry.dispose()); }
+  cable.clear(); meshes = [];
+  model.groups.forEach(g => { g.meshes = []; });
+  model.regions.forEach(rg => { rg._tw = undefined; });
+  for (const P of twistPlan()){
+    if (P.rg._tw === undefined) P.rg._tw = P.tw;
+    let r;
+    try { r = buildGeo(P.outer, P.holes, P.tw, P.g.target, P.internal); } catch (e) { console.warn(e); continue; }
+    const mesh = new THREE.Mesh(r.geo, P.g.mtl);
+    mesh.castShadow = true;
+    mesh.userData = {g: P.g, rg: P.rg, tw: P.tw};
+    mesh.scale.z = Math.max(P.g.len, 1e-3);
+    const edges = new THREE.LineSegments(r.lineGeo, P.g.lineMat);
+    edges.raycast = () => {};
+    mesh.add(edges);
+    cable.add(mesh); meshes.push(mesh); P.g.meshes.push(mesh);
+  }
+  state.selMesh = selRg ? meshes.find(m => m.userData.rg === selRg) || null : null;
+  applyAll();
+}
+let rebuildTimer = 0;
+function scheduleRebuild(){ clearTimeout(rebuildTimer); rebuildTimer = setTimeout(() => { if (model){ rebuildGeometry(); renderInfo(); } }, 150); }
+
+// 모드별 층 길이 (계단형: 안쪽 층일수록 길게 노출)
+const STRIP_BASE = 1.3;
+function stripStep(){ const n = model.nLevels; return n > 1 ? Math.min(0.72, (6.6 - STRIP_BASE) / (n - 1)) : 0; }
+function targetLen(g, mode){
+  const n = model.nLevels, step = stripStep(), maxL = STRIP_BASE + step * (n - 1);
+  if (mode === 'strip') return STRIP_BASE + step * (n - 1 - g.level);
+  if (mode === 'full') return Math.max(maxL, 3);
+  return 0.08;
+}
+function computeLengths(instant){
+  for (const g of model.groups){ g.target = targetLen(g, state.mode); if (instant || reduceMotion) g.len = g.target; }
+}
+
+/* --- 카메라 --- */
+const VIEW_DIR = new THREE.Vector3(0.62, 0.42, 1).normalize();
+const AZ0 = Math.atan2(VIEW_DIR.x, VIEW_DIR.z);
+let tween = null;
+// 좌측 패널 · 정보 카드가 가리는 폭을 뺀, 실제로 보이는 영역의 가로세로비
+function sideCover(){
+  if (window.innerWidth <= 860) return {left: 0, right: 0};
+  const side = document.querySelector(view === 'report' ? '#report' : '.side.design-only'), info = $('#info');
+  return {left: side ? side.offsetLeft + side.offsetWidth : 0, right: info && !info.hidden ? stageEl.clientWidth - info.offsetLeft : 0};
+}
+function fitDistance(radius){
+  const c = sideCover(), W = Math.max(200, stageEl.clientWidth - c.left - c.right), H = stageEl.clientHeight || 1;
+  const v = THREE.MathUtils.degToRad(camera.fov) / 2, h = Math.atan(Math.tan(v) * (W / H));
+  return radius / Math.sin(Math.min(v, h)) * 1.02;
+}
+function viewFor(mode, keepDir){
+  if (mode === 'section') return {pos: new THREE.Vector3(fitDistance(labelsOn ? 1.75 : 1.18), 0, 0), target: new THREE.Vector3()};
+  const maxL = model ? Math.max(...model.groups.map(g => targetLen(g, mode))) : 4;
+  const rad = Math.hypot(maxL / 2, 1.05);
+  const dir = keepDir ? camera.position.clone().sub(controls.target).normalize() : VIEW_DIR.clone();
+  return {pos: dir.multiplyScalar(fitDistance(rad) * (window.innerWidth <= 860 ? 1.04 : 0.92)), target: new THREE.Vector3()};
+}
+function goTo(v, instant){
+  if (instant || reduceMotion){ camera.position.copy(v.pos); controls.target.copy(v.target); controls.update(); tween = null; return; }
+  tween = {p0: camera.position.clone(), t0: controls.target.clone(), p1: v.pos, t1: v.target, start: performance.now(), dur: 750};
+}
+function tweenStep(){
+  if (!tween) return;
+  let k = Math.min(1, (performance.now() - tween.start) / tween.dur);
+  const e = k < .5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+  // 구면 보간으로 대상 주위를 부드럽게 돌아 이동
+  const a = tween.p0.clone().sub(tween.t0), b = tween.p1.clone().sub(tween.t1);
+  const la = a.length(), lb = b.length();
+  const dir = a.normalize().lerp(b.normalize(), e);
+  if (dir.lengthSq() < 1e-6) dir.set(0, 1, 0);
+  dir.normalize().multiplyScalar(la + (lb - la) * e);
+  controls.target.lerpVectors(tween.t0, tween.t1, e);
+  camera.position.copy(controls.target).add(dir);
+  if (k >= 1) tween = null;
+}
+
+/* --- 선택 · 호버 --- */
+const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+function pickAt(x, y){
+  if (!model) return null;
+  const r = canvas.getBoundingClientRect();
+  ndc.set(((x - r.left) / r.width) * 2 - 1, -((y - r.top) / r.height) * 2 + 1);
+  ray.setFromCamera(ndc, camera);
+  const hits = ray.intersectObjects(meshes.filter(m => m.visible), false);
+  for (const h of hits){ const g = h.object.userData.g; if (g.comp !== 'void' || g === state.sel || state.color !== 'real') return h.object; }
+  return null;
+}
+function setHover(g, ev, mesh){
+  const tip = $('#tip');
+  if (g && ev){
+    const r = stageEl.getBoundingClientRect(), t = mesh && mesh.userData.tw && mesh.userData.tw.info;
+    const sub = t ? `${t.name} · ${t.dir ? dirTxt(t.dir).split(' ')[0] + ' 꼬임' : '직선'} · k ${t.k.toFixed(4)}` : MAT[g.mat].ko;
+    tip.innerHTML = `<b>${esc(nameOf(g))}</b><small>${esc(sub)}</small>`;
+    tip.style.left = (ev.clientX - r.left) + 'px'; tip.style.top = (ev.clientY - r.top) + 'px';
+    tip.hidden = false;
+  } else tip.hidden = true;
+  canvas.style.cursor = g ? 'pointer' : '';
+  if (state.hover === g) return;
+  const prev = state.hover; state.hover = g;
+  if (prev) applyAppearance(prev);
+  if (g) applyAppearance(g);
+}
+let downAt = null, hoverEv = null, lastHover = 0;
+canvas.addEventListener('pointerdown', e => { downAt = {x: e.clientX, y: e.clientY}; $('#tip').hidden = true; });
+canvas.addEventListener('pointerup', e => {
+  if (downAt && e.button === 0 && Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) < 5){
+    const hit = pickAt(e.clientX, e.clientY), g = hit ? hit.userData.g : null;
+    if (g && g === state.sel && hit === state.selMesh) select(null); else select(g, hit);
+  }
+  downAt = null;
+});
+canvas.addEventListener('pointermove', e => { if (e.buttons || e.pointerType === 'touch') return; hoverEv = e; });
+canvas.addEventListener('pointerleave', () => { hoverEv = null; setHover(null); });
+controls.addEventListener('start', () => { tween = null; if (controls.autoRotate) setSpin(false); });
+
+const azi = $('#azi'), aziOut = $('#azi-out');
+controls.addEventListener('change', () => {
+  const d = Math.round(((THREE.MathUtils.radToDeg(controls.getAzimuthalAngle() - AZ0)) % 360 + 360) % 360);
+  if (document.activeElement !== azi) azi.value = d;
+  aziOut.textContent = d + '°';
+});
+function setAzimuth(deg){
+  const off = camera.position.clone().sub(controls.target);
+  const sph = new THREE.Spherical().setFromVector3(off);
+  sph.theta = AZ0 + THREE.MathUtils.degToRad(deg);
+  off.setFromSpherical(sph);
+  camera.position.copy(controls.target).add(off);
+  aziOut.textContent = Math.round(deg) + '°';
+}
+
+/* --- 렌더 루프 --- */
+const clock = new THREE.Clock();
+function frame(){
+  requestAnimationFrame(frame);
+  const t = clock.getElapsedTime();
+  if (model){
+    let maxL = 0;
+    for (const g of model.groups){
+      g.len = Math.abs(g.target - g.len) > 1e-4 ? g.len + (g.target - g.len) * 0.13 : g.target;
+      for (const m of g.meshes) m.scale.z = Math.max(g.len, 1e-3);
+      if (g.len > maxL) maxL = g.len;
+    }
+    holder.position.x = -maxL / 2;
+    if (state.sel && !reduceMotion) state.sel.mtl.emissiveIntensity = 0.05 + 0.05 * Math.sin(t * 3.2);
+  }
+  // 정보 카드가 열리면 모델을 카드 폭의 절반만큼 왼쪽으로 옮겨 가리지 않게 함
+  // 좌측 패널과 정보 카드 사이 빈 공간의 가운데에 모델이 오도록 화면을 옮김
+  const cov = sideCover();
+  const want = (cov.right - cov.left) / 2;
+  if (Math.abs(want - viewShift) > 0.5){
+    viewShift += (want - viewShift) * (reduceMotion ? 1 : 0.14);
+    const w = stageEl.clientWidth, h = stageEl.clientHeight;
+    if (w && h) camera.setViewOffset(w, h, viewShift, 0, w, h);
+  }
+  // 꼬임 형상은 삼각형이 많아 호버 판정은 70 ms 간격으로만
+  if (hoverEv && performance.now() - lastHover > 70){
+    lastHover = performance.now();
+    const e = hoverEv, hit = pickAt(e.clientX, e.clientY); hoverEv = null;
+    setHover(hit ? hit.userData.g : null, e, hit);
+  }
+  tweenStep();
+  controls.update();
+  renderer.render(scene, camera);
+  updateLabels();
+}
+let viewShift = 0;
+function resize(){
+  const w = stageEl.clientWidth, h = stageEl.clientHeight; if (!w || !h) return;
+  renderer.setSize(w, h, false); camera.aspect = w / h;
+  camera.setViewOffset(w, h, viewShift, 0, w, h);
+}
+new ResizeObserver(resize).observe(stageEl);
+
+/* =====================================================================
+   6. IEC 60502-1 / 60502-2 규격 검토
+   ===================================================================== */
+const CLASSES = {
+  '0.6/1':  {std:'IEC 60502-1', U:1,  Um:1.2,  lv:1, col:1, min:1.5, test:'3.5 kV · 5분'},
+  '1.8/3':  {std:'IEC 60502-1', U:3,  Um:3.6,  lv:1, col:2, min:10,  test:'6.5 kV · 5분'},
+  '3.6/6':  {std:'IEC 60502-2', U:6,  Um:7.2,  t:2.5, min:10, test:'12.5 kV · 5분'},
+  '6/10':   {std:'IEC 60502-2', U:10, Um:12,   t:3.4, min:16, test:'21 kV · 5분'},
+  '8.7/15': {std:'IEC 60502-2', U:15, Um:17.5, t:4.5, min:25, test:'30.5 kV · 5분'},
+  '12/20':  {std:'IEC 60502-2', U:20, Um:24,   t:5.5, min:35, test:'42 kV · 5분'},
+  '18/30':  {std:'IEC 60502-2', U:30, Um:36,   t:8.0, min:50, test:'63 kV · 5분'}
+};
+const IEC_SIZES = [1.5,2.5,4,6,10,16,25,35,50,70,95,120,150,185,240,300,400,500,630,800,1000,1200,1400,1600,1800,2000,2500];
+// IEC 60228 class 1·2 도체 20 °C 최대 직류저항 [연동(비도금), 알루미늄] Ω/km
+const R60228 = {1.5:[12.1,null],2.5:[7.41,null],4:[4.61,null],6:[3.08,null],10:[1.83,3.08],16:[1.15,1.91],25:[0.727,1.20],35:[0.524,0.868],
+  50:[0.387,0.641],70:[0.268,0.443],95:[0.193,0.320],120:[0.153,0.253],150:[0.124,0.206],185:[0.0991,0.164],240:[0.0754,0.125],300:[0.0601,0.100],
+  400:[0.0470,0.0778],500:[0.0366,0.0605],630:[0.0283,0.0469],800:[0.0221,0.0367],1000:[0.0176,0.0291],1200:[0.0151,0.0247],1400:[0.0129,0.0212],
+  1600:[0.0113,0.0186],1800:[0.0101,0.0165],2000:[0.0090,0.0149],2500:[0.0072,0.0127]};
+// IEC 60228 class 2 원형 도체 최소 소선 수 [비압축, 압축]
+const WIRES = {1.5:[7,null],2.5:[7,null],4:[7,null],6:[7,null],10:[7,6],16:[7,6],25:[7,6],35:[7,6],50:[19,6],70:[19,12],95:[19,15],
+  120:[37,18],150:[37,18],185:[37,30],240:[61,34],300:[61,34],400:[61,53],500:[61,53],630:[91,53],800:[91,53],1000:[91,53]};
+// IEC 60502-1 절연 공칭 두께 [단면적 상한, 0.6/1 kV, 1.8/3 kV]
+const T_LV = {
+  XLPE: [[16,0.7,2.0],[35,0.9,2.0],[50,1.0,2.0],[95,1.1,2.0],[120,1.2,2.0],[150,1.4,2.0],[185,1.6,2.0],[240,1.7,2.0],[300,1.8,2.0],[400,2.0,2.0],[500,2.2,2.2],[630,2.4,2.4],[800,2.6,2.6],[1000,2.8,2.8]],
+  PVC:  [[2.5,0.8,2.2],[16,1.0,2.2],[35,1.2,2.2],[70,1.4,2.2],[120,1.6,2.2],[150,1.8,2.2],[185,2.0,2.2],[240,2.2,2.2],[300,2.4,2.4],[400,2.6,2.6],[800,2.8,2.8],[1000,3.0,3.0]]
+};
+const T_BED = [[25,1.0],[35,1.2],[45,1.4],[60,1.6],[80,1.8],[Infinity,2.0]];            // 압출 내부 피복: 하부 직경 → 두께
+const T_ARM_WIRE = [[10,0.8],[15,1.25],[25,1.6],[35,2.0],[60,2.5],[Infinity,3.15]];     // 원형 외장선: 하부 직경 → 선 지름
+const T_ARM_TAPE = [[30,0.2],[70,0.5],[Infinity,0.8]];                                   // 강대: 하부 직경 → 두께
+const lookup = (rows, D) => (rows.find(r => D <= r[0] + 1e-9) || rows[rows.length - 1])[1];
+const STATUS_RANK = {fail: 4, warn: 3, pass: 2, info: 1, na: 0};
+const STATUS_TXT = {pass: '적합', fail: '부적합', warn: '확인 필요', info: '정보', na: '해당 없음'};
+const CHECK_COL = {fail: '#FF6B61', warn: '#E8B04B', pass: '#5FCB9A', none: '#5A6068'};
+const LAY_SEC = '연입률';
+const FILL_DEFAULT = {round: 0.76, compact: 0.90, segment: 0.90, solid: 1};   // 소선 미표현 도체의 점적률 가정값
+const ge = (a, b) => a >= b - 5e-3;          // 도면 좌표 오차 0.005 mm 허용
+const fmtR = v => v >= 1 ? v.toFixed(3) : v.toPrecision(3);
+
+function lvThickness(mat, cls, size){
+  const rows = T_LV[mat]; if (!rows || size > 1000) return null;
+  if (cls === '1.8/3' && size < 10) return null;
+  const r = rows.find(r => size <= r[0] + 1e-9);
+  return r ? r[CLASSES[cls].col] : null;
+}
+// 링 형태 층의 평균·최소 두께 (도면 단위). 평균은 면적 등가, 최소는 가장 얇은 곳
+function ringT(rg){
+  const o = asCircle(rg.outer); if (!o || !rg.holes.length) return null;
+  let far = 0, ecc = null;
+  for (const h of rg.holes){
+    const hc = asCircle(h);
+    if (hc){ const e = Math.hypot(hc.cx - o.cx, hc.cy - o.cy); far = Math.max(far, e + hc.r); if (rg.holes.length === 1) ecc = e; }
+    else for (const p of h.pts) far = Math.max(far, Math.hypot(p[0] - o.cx, p[1] - o.cy));
+  }
+  const rin = Math.sqrt(Math.max(0, o.r * o.r - rg.area / Math.PI));
+  const avg = o.r - rin;
+  return {avg, min: o.r - far, max: ecc === null ? null : avg + ecc, dout: 2 * o.r, dfar: 2 * far};
+}
+// 시스 바로 아래 층 (얇은 테이프·반도전층은 건너뛰고 확인)
+function underlying(rg, depth = 0){
+  const res = [];
+  for (const h of rg.holes){
+    const r = h.region; if (!r || !r.group) continue;
+    res.push(r.group);
+    if (depth < 3 && ['binder','wbtape','wbcomp','void','semicon','iscreen','graphite'].includes(r.group.comp)) res.push(...underlying(r, depth + 1));
+  }
+  return res;
+}
+function conductorInfo(S){
+  const conds = model.groups.filter(g => g.comp === 'conductor');
+  if (!conds.length) return null;
+  const regs = conds.flatMap(g => g.regions);
+  const insRegs = model.groups.filter(g => g.comp === 'insulation').flatMap(g => g.regions);
+  const parents = new Set(regs.map(r => r.outer.parent));
+  const cores = insRegs.length || (parents.size > 1 ? regs.length : 1);
+  const Adraw = regs.reduce((s, r) => s + r.area, 0);
+  const one = cores === 1 && regs.length >= 3 && parents.size === 1;
+  const stranded = one && regs.every(r => r.outer.kind === 'circle' && !r.holes.length);
+  // 소선을 그리지 않은 도체는 외곽 면적에 점적률(가정)을 곱해 금속 단면적으로 봄
+  const fill = stranded || S.cond === 'solid' ? 1 : S.fill;
+  const A = Adraw * fill;
+  const par = one ? [...parents][0] : null, pc = par ? asCircle(par) : null;
+  const mat = MAT[conds[0].mat];
+  const info = {cores, A, Adraw, fillUsed: fill, Acore: A / cores, stranded, segment: one && !stranded, nWires: stranded ? regs.length : 0, rho: mat.rho || null, dens: mat.dens, kLay: 1};
+  if (stranded){
+    const cen = pc ? [pc.cx, pc.cy] : model.center;
+    const ds = regs.map(r => ({r: Math.hypot(r.outer.cx - cen[0], r.outer.cy - cen[1]), d: 2 * r.outer.r, a: r.area})).sort((a, b) => a.r - b.r);
+    const dAvg = ds.reduce((s, x) => s + x.d, 0) / ds.length, rings = [];
+    for (const x of ds){ const L = rings[rings.length - 1]; if (L && x.r - L.r0 < dAvg * 0.35) L.items.push(x); else rings.push({r0: x.r, items: [x]}); }
+    info.layers = rings.map(L => {
+      const n = L.items.length, rm = L.items.reduce((s, x) => s + x.r, 0) / n, d = L.items.reduce((s, x) => s + x.d, 0) / n;
+      const a = L.items.reduce((s, x) => s + x.a, 0), center = rm < d * 0.3, Dm = 2 * rm, Do = Dm + d, lay = S.lay.cond * Do;
+      return {n, d, a, center, Do, lay, k: center ? 1 : Math.sqrt(1 + Math.pow(Math.PI * Dm / lay, 2))};
+    });
+    info.kbar = A / info.layers.reduce((s, L) => s + L.a / L.k, 0);
+  } else info.kbar = S.cond === 'solid' ? 1 : S.kAssumed;
+  info.Aeff = info.Acore / info.kbar;
+  if (cores >= 2){
+    const cs = insRegs.map(r => asCircle(r.outer)).filter(Boolean), cen = model.center;
+    if (cs.length >= 2){
+      const rp = cs.reduce((s, c) => s + Math.hypot(c.cx - cen[0], c.cy - cen[1]), 0) / cs.length;
+      const rc = cs.reduce((s, c) => s + c.r, 0) / cs.length;
+      info.Dp = 2 * rp; info.Da = 2 * (rp + rc); info.layLen = S.lay.core * info.Da;
+      info.kLay = Math.sqrt(1 + Math.pow(Math.PI * info.Dp / info.layLen, 2));
+    }
+  }
+  if (info.rho) info.Rcable = info.rho * info.kLay / (info.Aeff * model.unit * model.unit);
+  if (stranded && pc) info.fill = A / (Math.PI * pc.r * pc.r);
+  return info;
+}
+// 나선형으로 감긴 금속선 층 (동심 중성선 · 차폐선 · 외장선)
+function wireInfo(S){
+  const out = [], cen = model.center;
+  for (const g of model.groups){
+    if (!g.dot || g.count < 6 || !['neutral','mscreen','armour'].includes(g.comp)) continue;
+    const w = g.regions.map(r => ({ang: Math.atan2(r.outer.cy - cen[1], r.outer.cx - cen[0]), r: Math.hypot(r.outer.cx - cen[0], r.outer.cy - cen[1]), d: 2 * r.outer.r, a: r.area}));
+    const rm = w.reduce((s, x) => s + x.r, 0) / w.length, d = w.reduce((s, x) => s + x.d, 0) / w.length;
+    if (rm < model.R * 0.3) continue;
+    if (S.lay.wire[g.id] === undefined) S.lay.wire[g.id] = g.comp === 'armour' ? 10 : 8;
+    const lam = S.lay.wire[g.id], Dm = 2 * rm, Do = Dm + d, lay = lam * Do, tan = Math.PI * Dm / lay, k = Math.sqrt(1 + tan * tan), cos = 1 / k;
+    const angs = w.map(x => x.ang).sort((a, b) => a - b);
+    const gaps = angs.map((a, i) => ((i + 1 < angs.length ? angs[i + 1] : angs[0] + TAU) - a) * rm * cos - d);
+    const A = w.reduce((s, x) => s + x.a, 0), rho = MAT[g.mat].rho, u = model.unit;
+    out.push({g, n: w.length, rm, d, Do, lam, lay, k, alpha: Math.atan(tan) * 180 / Math.PI,
+      gapAvg: gaps.reduce((s, x) => s + x, 0) / gaps.length, gapMax: Math.max(...gaps), A, R: rho ? rho * k / (A * u * u) : null});
+  }
+  return out;
+}
+
+function iecAuto(m){
+  const text = [m.title, m.name, ...m.groups.flatMap(g => g.labels)].join(' ');
+  const S = {lay: {cond: 12, core: 30, wire: {}}, kAssumed: 1.02};
+  const pair = text.match(/(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)\s*kv/i), one = text.match(/(\d+(?:\.\d+)?)\s*kv/i);
+  if (pair && CLASSES[`${+pair[1]}/${+pair[2]}`]){ S.cls = `${+pair[1]}/${+pair[2]}`; S.why = `등급: 도면 표기 ${pair[0]}`; }
+  else if (one){
+    const U = +one[1], c = Object.keys(CLASSES).find(k => CLASSES[k].U >= U - 1e-9);
+    if (!c){ S.cls = 'out'; S.why = `${one[0]}: IEC 60502 범위(≤ 30 kV) 밖`; }
+    else if (CLASSES[c].U === U) { S.cls = c; S.why = `등급: 도면 표기 ${one[0]}`; }
+    else { S.cls = c; S.why = `${U} kV → ${c} kV 적용 (IEC 등급 없음)`; }
+  } else {
+    const ins = m.groups.find(g => g.comp === 'insulation'), T = ins && ringT(ins.regions[0]), t = T ? T.avg * m.unit : 0;
+    let c = '0.6/1';
+    for (const k of ['3.6/6','6/10','8.7/15','12/20','18/30']) if (t >= CLASSES[k].t - 0.05) c = k;
+    S.cls = c; S.why = `전압 표기 없음 → 절연 ${fmt(t, 2)} mm로 ${c} kV 추정`;
+  }
+  S.cond = 'compact'; S.fill = FILL_DEFAULT.compact;
+  const ci = conductorInfo(S);
+  if (ci){ S.cond = ci.stranded ? 'round' : ci.segment ? 'segment' : 'compact'; S.fill = FILL_DEFAULT[S.cond]; }
+  S.condWhy = !ci ? '' : ci.stranded ? `도체: 소선 ${ci.nWires}가닥` : ci.segment ? '도체: 분할 도체' : '도체: 소선 미표현 → 압축 연선 가정';
+  const sz = text.match(/(\d+(?:\.\d+)?)\s*(?:sq|㎟|mm2|mm²)(?![a-z])/i);
+  if (sz){ S.size = +sz[1]; S.sizeWhy = `단면적: 도면 표기 ${sz[0]}`; }
+  else if (ci){ const A = ci.Acore * m.unit * m.unit; S.size = IEC_SIZES.reduce((b, s) => Math.abs(s - A) < Math.abs(b - A) ? s : b); S.sizeWhy = `단면적: 도면 면적 ${fmt(A, 1)} mm²로 추정`; }
+  else S.size = 0;
+  return S;
+}
+
+function evaluate(){
+  const m = model, S = m.iec, u = m.unit, C = [], cls = CLASSES[S.cls];
+  const add = (sec, o) => C.push(Object.assign({sec, gids: [], val: []}, o));
+  const G = c => m.groups.filter(g => g.comp === c);
+  const mm = (v, d = 2) => fmt(v, d) + ' mm';
+  const ci = conductorInfo(S), wires = wireInfo(S), conds = G('conductor'), insul = G('insulation');
+  const size = S.size, std = IEC_SIZES.includes(size);
+
+  if (!cls){
+    add('적용 범위', {title:'IEC 60502 적용 범위', status:'na', val:[['판정','범위 밖']],
+      note: S.why + ' · 150 kV 이하 IEC 60840, 초과 IEC 62067 대상'});
+  } else {
+    add('적용 범위', {title:`${cls.std} · U0/U ${S.cls} kV`, status:'info', val:[['Um', cls.Um + ' kV'], ['구분', cls.lv ? '저압' : '고압']], note: S.why});
+
+    /* --- 도체 --- */
+    const sec = '도체 · IEC 60228';
+    if (!conds.length) add(sec, {title:'도체', status:'fail', say:'도체 층 없음', fix:'레이어 이름에 conductor · 도체 지정'});
+    else {
+      const gids = conds.map(g => g.id), mats = [...new Set(conds.map(g => g.mat))], okMat = mats.every(x => x === 'CU' || x === 'AL');
+      const matTxt = mats.map(x => MAT[x].ko).join(', ');
+      add(sec, {title:'도체 재질', gids, status: okMat ? 'pass' : 'fail', val:[['도면', matTxt], ['허용', '연동 · 알루미늄']],
+        say:`도체 재질 ${matTxt} — 허용 재질 아님`, fix:'연동 또는 알루미늄으로 변경'});
+      const small = size < cls.min, sz = fmt(size, size < 10 ? 1 : 0);
+      add(sec, {title:'공칭 단면적', gids, status: small ? 'fail' : std ? 'pass' : 'warn', verify: !cls.lv,
+        val:[['선정', sz + ' mm²'], ['등급 최소', cls.min + ' mm²']],
+        say: small ? `도체 ${sz} mm² — ${S.cls} kV 최소 ${cls.min} mm² 미달` : `도체 ${sz} mm² — IEC 표준 단면적 아님`,
+        fix: small ? `${cls.min} mm² 이상으로 변경` : '표준 단면적 선정 또는 발주처 협의',
+        note: std ? '' : 'IEC 60228 표준 단면적 아님 → 저항 기준 적용 불가'});
+      add(sec, {title:'도체 금속 단면적', gids, status:'info',
+        val:[...(ci.fillUsed < 1 ? [['도면 외곽', fmt(ci.Adraw / ci.cores * u * u, 1) + ' mm²']] : []), ['1심 금속', fmt(ci.Acore * u * u, 1) + ' mm²'], ['공칭 대비', fmt(ci.Acore * u * u / size * 100, 1) + ' %']],
+        note: ci.stranded ? `소선 ${ci.nWires}가닥 합` : ci.fillUsed < 1 ? `외곽 면적 × 점적률 ${ci.fillUsed} (가정)` : '단선'});
+      const need = WIRES[size] ? (S.cond === 'round' ? WIRES[size][0] : S.cond === 'compact' ? WIRES[size][1] : null) : null;
+      if (S.cond === 'solid') add(sec, {title:'도체 구조', gids, status:'info', val:[['구조','단선 (class 1)']]});
+      else if (S.cond === 'segment') add(sec, {title:'최소 소선 수', gids, status:'info', val:[['구조','분할 도체']], note:'세그먼트 구성은 제조 사양 확인'});
+      else if (!ci.stranded) add(sec, {title:'최소 소선 수', gids, status:'warn', verify: true, val: need ? [['도면','소선 미표현'], ['최소', need + ' 가닥']] : [['도면','소선 미표현']],
+        say:'도면에 소선 없음 — 소선 수 판정 불가', fix:'설계 사양으로 확인', note:'소선을 원으로 그리면 자동 판정'});
+      else if (!need) add(sec, {title:'최소 소선 수', gids, status:'warn', val:[['도면', ci.nWires + ' 가닥']],
+        say:`소선 ${ci.nWires}가닥 — 기준값 없음 (비표준 단면적)`, fix:'설계 사양으로 확인'});
+      else add(sec, {title:'최소 소선 수', gids, status: ci.nWires >= need ? 'pass' : 'fail', verify: true, val:[['도면', ci.nWires + ' 가닥'], ['최소', need + ' 가닥']],
+        say:`소선 ${ci.nWires}가닥 — 최소 ${need}가닥 미달`, fix:`${need}가닥 이상으로 구성`, note: S.cond === 'round' ? '원형 비압축 연선' : '원형 압축 연선'});
+      const lim = R60228[size] && R60228[size][mats[0] === 'AL' ? 1 : 0];
+      if (okMat && ci.Rcable){
+        const base = [['계산', fmtR(ci.Rcable) + ' Ω/km']];
+        const note = `연입률 반영 (k̄ ${ci.kbar.toFixed(4)}${ci.cores >= 2 ? ` · 연합 ${ci.kLay.toFixed(4)}` : ''})`;
+        if (!lim) add(sec, {title:'최대 도체저항 (20 °C)', gids, status:'warn', val: base, note,
+          say:`도체 저항 ${fmtR(ci.Rcable)} Ω/km — 기준값 없음 (비표준 단면적)`, fix:'발주처 요구값으로 확인'});
+        else add(sec, {title:'최대 도체저항 (20 °C)', gids, status: ci.Rcable <= lim ? 'pass' : 'fail', val:[...base, ['최대', fmtR(lim) + ' Ω/km']], note,
+          say:`도체 저항 ${fmtR(ci.Rcable)} Ω/km — 허용 ${fmtR(lim)} 초과`, fix:`금속 단면적 +${fmt((ci.Rcable / lim - 1) * 100, 1)} % 이상`});
+      }
+    }
+
+    /* --- 절연체 --- */
+    const sec2 = '절연체';
+    if (!insul.length) add(sec2, {title:'절연층', status:'fail', say:'절연층 없음', fix:'레이어 이름에 xlpe · 절연 지정'});
+    const buckets = new Map();
+    for (const g of insul){
+      const T = g.regions.map(ringT).filter(Boolean);
+      const key = T.length ? `${g.mat}|${Math.min(...T.map(t => t.avg)).toFixed(3)}|${Math.min(...T.map(t => t.min)).toFixed(3)}` : `${g.mat}|${g.id}`;
+      if (!buckets.has(key)) buckets.set(key, {mat: g.mat, gs: [], T});
+      buckets.get(key).gs.push(g);
+    }
+    for (const {mat, gs, T} of buckets.values()){
+      const gids = gs.map(g => g.id), lab = gs.some(g => g.color) ? ' · ' + gs.map(g => g.color ? g.color.name : '').filter(Boolean).join('·') : '';
+      const matOk = cls.lv ? ['XLPE','PVC','EPR'].includes(mat) : (['XLPE','EPR'].includes(mat) || (mat === 'PVC' && S.cls === '3.6/6'));
+      add(sec2, {title:'절연 재질' + lab, gids, status: matOk ? 'pass' : 'fail', val:[['도면', MAT[mat].ko]],
+        say:`절연 재질 ${MAT[mat].ko} — 허용 재질 아님`, fix: cls.lv ? 'PVC · XLPE · EPR로 변경' : 'XLPE · EPR로 변경'});
+      if (!T.length){ add(sec2, {title:'절연 두께' + lab, gids, status:'warn', say:'절연 두께 계산 불가 (원형 아님)', fix:'도면 확인'}); continue; }
+      const avg = Math.min(...T.map(t => t.avg)) * u, tmin = Math.min(...T.map(t => t.min)) * u;
+      const tn = cls.lv ? lvThickness(mat, S.cls, size) : (mat === 'XLPE' || mat === 'EPR') ? cls.t : null;
+      if (tn == null){
+        add(sec2, {title:'절연 공칭 두께' + lab, gids, status:'warn', val:[['도면', mm(avg)]],
+          say:`절연 ${mm(avg)} — 기준값 없음`, fix:'규격 원문 · 발주처 사양으로 확인', note: mat === 'EPR' && cls.lv ? 'EPR 저압 두께 표 미내장' : '해당 조건 표 값 없음'});
+        continue;
+      }
+      add(sec2, {title:'절연 공칭 두께' + lab, gids, status: ge(avg, tn) ? 'pass' : 'fail', verify: mat === 'PVC',
+        val:[['도면 평균', mm(avg)], ['기준', '≥ ' + mm(tn, 1)]],
+        say:`절연 두께 ${mm(avg)} — 기준 ${mm(tn, 1)} (−${mm(tn - avg)})`, fix:`절연 +${mm(tn - avg)} 또는 적용 등급 재검토`,
+        note: cls.lv ? `${cls.std} 표 · ${MAT[mat].ko} · ${fmt(size, 0)} mm²` : `${cls.std} 표 · ${S.cls} kV`});
+      const tl = 0.9 * tn - 0.1;
+      add(sec2, {title:'절연 최소 두께' + lab, gids, status: ge(tmin, tl) ? 'pass' : 'fail', val:[['도면 최소', mm(tmin)], ['기준', '≥ ' + mm(tl)]],
+        note:'공칭 × 0.9 − 0.1 mm', say:`절연 최소 두께 ${mm(tmin)} — 기준 ${mm(tl)} 미달`, fix:`최소 두께 +${mm(tl - tmin)} (편심 포함)`});
+    }
+
+    /* --- 반도전층 (고압) --- */
+    if (!cls.lv){
+      const sec3 = '반도전층', cs = G('cscreen'), is = G('iscreen'), sc = G('semicon');
+      const th = g => { const T = ringT(g.regions[0]); return T ? mm(T.avg * u) : '—'; };
+      add(sec3, {title:'도체 차폐 (내부 반도전층)', gids: cs.map(g => g.id), status: cs.length ? 'pass' : sc.length ? 'warn' : 'fail',
+        val: cs.length ? [['도면 두께', th(cs[0])]] : [], note:'두께 규정 없음',
+        say: sc.length ? '내부 반도전층 위치 확인 필요' : '내부 반도전층 없음', fix: sc.length ? '레이어 분류 확인' : '도체–절연 사이 반도전층 추가'});
+      add(sec3, {title:'절연 차폐 (외부 반도전층)', gids: is.map(g => g.id), status: is.length ? 'pass' : sc.length ? 'warn' : 'fail',
+        val: is.length ? [['도면 두께', th(is[0])]] : [], note:'두께 규정 없음',
+        say: sc.length ? '외부 반도전층 위치 확인 필요' : '외부 반도전층 없음', fix: sc.length ? '레이어 분류 확인' : '절연체 위 반도전층 추가'});
+    }
+
+    /* --- 금속층 --- */
+    const sec4 = cls.lv ? '동심 도체 · 금속층' : '금속 차폐';
+    const metals = m.groups.filter(g => ['neutral','mscreen','metalsheath'].includes(g.comp));
+    if (!cls.lv) add(sec4, {title:'금속 차폐층', gids: metals.map(g => g.id), status: metals.length ? 'pass' : 'fail',
+      val: metals.length ? [['도면', metals.map(g => nameOf(g)).join(', ')]] : [], say:'금속 차폐층 없음', fix:'동선 · 동테이프 차폐 추가'});
+    for (const w of wires){
+      if (w.g.comp === 'armour') continue;
+      const ga = w.gapAvg * u, gm = w.gapMax * u;
+      add(sec4, {title:`${nameOf(w.g)} 선 간격`, gids:[w.g.id], status: ga <= 4 + 5e-3 && gm <= 8 + 5e-3 ? 'pass' : 'fail', verify: true,
+        val:[['평균', mm(ga)], ['최대', mm(gm)], ['기준', '평균 ≤ 4 · 개별 ≤ 8 mm']],
+        note:`선 경사각 ${fmt(w.alpha, 1)}° 반영, 선 직각 방향`, say:`${nameOf(w.g)} 간격 평균 ${mm(ga)} · 최대 ${mm(gm)} — 기준 초과`, fix:'선 수 증가 또는 선 지름 확대'});
+      add(sec4, {title:`${nameOf(w.g)} 단면적 · 저항`, gids:[w.g.id], status:'info',
+        val:[['단면적', fmt(w.A * u * u, 1) + ' mm²'], ...(w.R ? [['20 °C', fmtR(w.R) + ' Ω/km']] : [])],
+        note:'요구 단면적은 고장전류로 결정 (발주처 지정)'});
+    }
+
+    /* --- 코어 집합 · 내부 피복 · 외장 --- */
+    const arm = G('armour'), bed = G('bedding');
+    if (ci && ci.cores >= 2 || arm.length || bed.length){
+      const sec5 = '코어 집합 · 내부 피복 · 외장';
+      if (ci && ci.cores >= 2) add(sec5, {title:`${ci.cores}심 코어 집합`, status:'info', gids:[...G('filler'), ...G('binder')].map(g => g.id),
+        val:[['개재물', G('filler').length ? '있음' : '없음'], ['바인더', G('binder').length ? '있음' : '없음'], ['내부 피복', bed.length ? '있음' : '없음']]});
+      for (const g of bed){
+        const T = ringT(g.regions[0]); if (!T) continue;
+        const D = T.dfar * u, tn = lookup(T_BED, D);
+        add(sec5, {title:'내부 피복 두께', gids:[g.id], status: ge(T.avg * u, tn) ? 'pass' : 'fail', verify: true, val:[['도면', mm(T.avg * u)], ['기준', '≥ ' + mm(tn, 1)]],
+          note:`하부 직경 ${fmt(D, 1)} mm (도면 실측)`, say:`내부 피복 ${mm(T.avg * u)} — 기준 ${mm(tn, 1)} 미달`, fix:`+${mm(tn - T.avg * u)}`});
+      }
+      if (arm.length && ci && ci.cores >= 2 && !bed.length) add(sec5, {title:'외장 아래 내부 피복', gids: arm.map(g => g.id), status:'fail', verify: true,
+        say:'외장 아래 내부 피복 없음', fix:'내부 피복 추가'});
+      for (const g of arm){
+        const w = wires.find(x => x.g === g);
+        if (w){
+          const D = (2 * w.rm - w.d) * u, dn = lookup(T_ARM_WIRE, D);
+          add(sec5, {title:'외장선 지름', gids:[g.id], status: ge(w.d * u, dn) ? 'pass' : 'fail', verify: true, val:[['도면', mm(w.d * u)], ['기준', '≥ ' + mm(dn)]],
+            note:`하부 직경 ${fmt(D, 1)} mm`, say:`외장선 Ø${fmt(w.d * u, 2)} mm — 기준 Ø${fmt(dn, 2)} 미달`, fix:`Ø${fmt(dn, 2)} mm 이상`});
+        } else {
+          const T = ringT(g.regions[0]); if (!T) continue;
+          const D = T.dfar * u, tn = lookup(T_ARM_TAPE, D), t1 = T.avg * u / 2;
+          add(sec5, {title:'외장 강대 두께', gids:[g.id], status: ge(t1, tn) ? 'pass' : 'fail', verify: true, val:[['1장', mm(t1)], ['기준', '≥ ' + mm(tn, 1)]],
+            note:`2장 겹감기 가정 · 하부 직경 ${fmt(D, 1)} mm`, say:`강대 1장 ${mm(t1)} — 기준 ${mm(tn, 1)} 미달`, fix:`${fmt(tn, 1)} mm 이상`});
+        }
+      }
+    }
+
+    /* --- 외부 시스 --- */
+    const sec6 = '외부 시스', sh = G('sheath').sort((a, b) => b.rMax - a.rMax)[0];
+    if (!sh) add(sec6, {title:'외부 시스', status:'fail', say:'외부 시스 없음', fix:'레이어 이름에 sheath · 시스 지정'});
+    else {
+      add(sec6, {title:'시스 재질', gids:[sh.id], status: ['PVC','PE','LSZH'].includes(sh.mat) ? 'pass' : 'warn',
+        val:[['도면', MAT[sh.mat].ko]], note:'PVC · PE · 할로겐 프리', say:`시스 재질 ${MAT[sh.mat].ko} — 표준 재질 아님`, fix:'재질 확인'});
+      const T = ringT(sh.regions[0]);
+      if (T){
+        const D = T.dfar * u, overMetal = underlying(sh.regions[0]).some(g => ['neutral','mscreen','armour','metalsheath'].includes(g.comp));
+        const tcalc = Math.round((0.035 * D + 1.0) * 10) / 10, floor = (ci && ci.cores >= 2) || overMetal ? 1.8 : 1.4, tn = Math.max(tcalc, floor);
+        add(sec6, {title:'시스 공칭 두께', gids:[sh.id], status: ge(T.avg * u, tn) ? 'pass' : 'fail', val:[['도면 평균', mm(T.avg * u)], ['기준', '≥ ' + mm(tn, 1)]],
+          note:`0.035 D + 1.0 = ${fmt(tcalc, 1)} (D ${fmt(D, 1)} mm, 도면 실측) · 하한 ${floor}`,
+          say:`시스 두께 ${mm(T.avg * u)} — 기준 ${mm(tn, 1)} (−${mm(tn - T.avg * u)})`, fix:`시스 +${mm(tn - T.avg * u)}`});
+        const tl = overMetal ? 0.8 * tn - 0.2 : 0.85 * tn - 0.1;
+        add(sec6, {title:'시스 최소 두께', gids:[sh.id], status: ge(T.min * u, tl) ? 'pass' : 'fail', val:[['도면 최소', mm(T.min * u)], ['기준', '≥ ' + mm(tl)]],
+          note: overMetal ? '공칭 × 0.8 − 0.2 mm (금속층 위)' : '공칭 × 0.85 − 0.1 mm',
+          say:`시스 최소 두께 ${mm(T.min * u)} — 기준 ${mm(tl)} 미달`, fix:`최소 두께 +${mm(tl - T.min * u)}`});
+      }
+    }
+
+    /* --- 시험 · 운전 --- */
+    const sec8 = '시험 · 운전 정보', im = insul[0] && insul[0].mat;
+    add(sec8, {title:'상용주파 내전압 (정기 시험)', status:'info', val:[['시험 전압', cls.test]]});
+    add(sec8, {title:'도체 최고 허용온도', status:'info',
+      val: im === 'PVC' ? [['상시','70 °C'], ['단락', size > 300 ? '140 °C' : '160 °C']] : [['상시','90 °C'], ['단락','250 °C']]});
+  }
+
+  /* --- 연입률 · 세부 검토 (적용 범위와 무관하게 표시) --- */
+  if (ci){
+    const gids = conds.map(g => g.id);
+    if (ci.layers) add(LAY_SEC, {title:'도체 소선 층별 연입률', gids, status:'info',
+      table:{head:['층','가닥','방향','층 외경','연피치','연입률'], rows: ci.layers.map((L, i, all) => [
+        L.center ? '중심' : `${all[0].center ? i : i + 1}층`, L.n, L.center ? '—' : ((all.length - 1 - i) % 2 === 0 ? 'Z' : 'S'),
+        fmt(L.Do * u, 2), L.center ? '—' : fmt(L.lay * u, 0), L.k.toFixed(4)])},
+      val:[['평균 k̄', ci.kbar.toFixed(4)], ['길이 증가', fmt((ci.kbar - 1) * 100, 2) + ' %']],
+      note:'연피치 = 연조비 × 층 외경 · k = √(1 + (π·Dm / 연피치)²)'});
+    else add(LAY_SEC, {title:'도체 연입률', gids, status:'info', val:[['k', ci.kbar.toFixed(4)]],
+      note: S.cond === 'solid' ? '단선: k = 1' : '소선 미표현: 가정값'});
+    if (ci.cores >= 2 && ci.Dp) add(LAY_SEC, {title:'코어 연합 연입률', status:'info',
+      val:[['피치원', mm(ci.Dp * u, 1)], ['연피치', fmt(ci.layLen * u, 0) + ' mm'], ['k', ci.kLay.toFixed(4)]],
+      note:`연피치 = 연조비 × 연합 외경 ${fmt(ci.Da * u, 1)} mm`});
+    add(LAY_SEC, {title:'도체 실효 단면적 · 저항', gids, status:'info',
+      val:[['실효', fmt(ci.Aeff * u * u, 1) + ' mm²'], ...(ci.Rcable ? [['20 °C', fmtR(ci.Rcable) + ' Ω/km']] : [])],
+      note:'실효 = Σ(소선 ÷ k) · 저항 = ρ20 × 연합 k ÷ 실효'});
+    if (ci.fill) add(LAY_SEC, {title:'도체 점적률', gids, status:'info', val:[['점적률', fmt(ci.fill * 100, 1) + ' %']],
+      note:'일반값: 비압축 약 75 % · 압축 약 90 %'});
+    else if (ci.fillUsed < 1) add(LAY_SEC, {title:'도체 점적률 (가정)', gids, status:'info', val:[['점적률', fmt(ci.fillUsed * 100, 1) + ' %']],
+      note:'일반값: 비압축 약 75 % · 압축 약 90 %'});
+    if (ci.dens) add(LAY_SEC, {title:'도체 중량 (연입률 반영)', gids, status:'info',
+      val:[['중량', fmt(ci.dens * ci.A * u * u * ci.kbar * ci.kLay, 0) + ' kg/km']]});
+  }
+  for (const w of wires) add(LAY_SEC, {title:`${nameOf(w.g)} 연입률`, gids:[w.g.id], status:'info',
+    val:[['k', w.k.toFixed(4)], ['방향', w.g.comp === 'armour' ? 'Z' : 'S'], ['연피치', fmt(w.lay * u, 0) + ' mm'], ['경사각', fmt(w.alpha, 1) + '°'], ['선 수', w.n + ' 가닥']],
+    note:`연피치 = 연조비 ${w.lam} × 층 외경 ${fmt(w.Do * u, 1)} mm`});
+  for (const g of insul){
+    const T = ringT(g.regions[0]);
+    if (T && T.max) add(LAY_SEC, {title:'절연 편심률' + (g.color ? ` · ${g.color.name}` : ''), gids:[g.id], status:'info',
+      val:[['편심률', fmt((T.max - T.min) / T.max * 100, 1) + ' %'], ['최대', mm(T.max * u)], ['최소', mm(T.min * u)]],
+      note:'(최대 − 최소) ÷ 최대'});
+  }
+
+  m.checks = C;
+  for (const g of m.groups){
+    let st = null;
+    for (const c of C) if (c.gids.includes(g.id) && ['fail','warn','pass'].includes(c.status) && (st === null || STATUS_RANK[c.status] > STATUS_RANK[st])) st = c.status;
+    g.status = st;
+  }
+}
+
+/* =====================================================================
+   7. 사이드 패널 · 정보 카드
+   ===================================================================== */
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt = (v, d = 1) => Number(v).toLocaleString('ko-KR', {minimumFractionDigits: d, maximumFractionDigits: d});
+const EYE = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8z"/><circle cx="8" cy="8" r="2"/></svg>';
+const EYE_OFF = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M2 2l12 12M6.6 3.7A6.6 6.6 0 0 1 8 3.5C12 3.5 14.5 8 14.5 8a12 12 0 0 1-2 2.6M4.2 5.1A11 11 0 0 0 1.5 8S4 12.5 8 12.5a6 6 0 0 0 2.6-.6"/></svg>';
+
+function nameOf(g){
+  let n = COMP[g.comp].ko;
+  if (g.comp === 'conductor' && g.dot && g.count >= 6) n = '도체 소선';
+  if (g.comp === 'conductor' && /milliken|segment|분할/i.test([...g.layers].join(' '))) n = '분할 도체 (밀리켄)';
+  if (g.color) n += ` (${g.color.name})`;
+  return n;
+}
+// 원 또는 원에 가까운 폴리선(원호 조합 등)을 원으로 간주
+function asCircle(c){
+  if (c.kind === 'circle') return c;
+  if (c._circ !== undefined) return c._circ;
+  let circ = null;
+  if (c.pts.length >= 16){
+    const cx = (c.bb[0] + c.bb[2]) / 2, cy = (c.bb[1] + c.bb[3]) / 2;
+    let lo = Infinity, hi = 0, sum = 0;
+    for (const p of c.pts){ const d = Math.hypot(p[0] - cx, p[1] - cy); lo = Math.min(lo, d); hi = Math.max(hi, d); sum += d; }
+    const r = sum / c.pts.length;
+    if (hi - lo < r * 0.004) circ = {cx, cy, r};
+  }
+  return (c._circ = circ);
+}
+function dims(g){
+  const u = model.unit, r0 = g.regions[0], o = r0.outer;
+  if (g.dot) return {type: 'dot', d: o.r * 2 * u};
+  const oc = asCircle(o), hc = r0.holes.length === 1 ? asCircle(r0.holes[0]) : null;
+  if (oc && hc && Math.hypot(hc.cx - oc.cx, hc.cy - oc.cy) < oc.r * 1e-3)
+    return {type: 'ring', od: oc.r * 2 * u, id: hc.r * 2 * u, t: (oc.r - hc.r) * u};
+  return {type: 'shape', od: (o.kind === 'circle' ? o.r * 2 : Math.max(o.bb[2] - o.bb[0], o.bb[3] - o.bb[1])) * u};
+}
+function dimLabel(g){
+  const D = dims(g), a = g.area * model.unit * model.unit;
+  if (D.type === 'dot') return `Ø${fmt(D.d, 2)}` + (g.count > 1 ? ` ×${g.count}` : '');
+  if (D.type === 'ring') return `t ${fmt(D.t, 2)}`;
+  return (g.count > 1 ? `${g.count}개 · ` : '') + `${fmt(a, a < 100 ? 1 : 0)} mm²`;
+}
+function swatchCSS(g){
+  const c = baseColor(g), m = MAT[g.mat], code = state.color !== 'real';
+  if (g.comp === 'void' && !code) return 'background:transparent;box-shadow:inset 0 0 0 1.5px var(--line-2)';
+  if (m.metal && !code) return `background:radial-gradient(circle at 32% 28%,rgba(255,255,255,.8),transparent 50%),${c}`;
+  return `background:${c}`;
+}
+
+// 구성요소별 중량 kg/km (밀도 × 금속 단면적 × 연입률). 보고 화면 · 재료비 · 설계 요약이 같은 값을 쓴다
+function weights(){
+  const u = model.unit, S = model.iec, ci = conductorInfo(S), wires = wireInfo(S), out = new Map();
+  const coreK = ci && ci.cores >= 2 ? ci.kLay : 1;
+  const inCore = new Set();
+  if (ci && ci.cores >= 2){
+    for (const m of meshes){ const t = m.userData.tw; if (t && t.key === 'core') inCore.add(m.userData.g); }
+  }
+  for (const g of model.groups){
+    const dens = MAT[g.mat].dens; if (!dens) continue;
+    let a = g.area * u * u, k = 1;
+    if (g.comp === 'conductor' && ci){ a = g.area * u * u * (ci.stranded ? 1 : ci.fillUsed); k = ci.kbar * coreK; }
+    else { const w = wires.find(x => x.g === g); if (w) k = w.k; else if (inCore.has(g)) k = coreK; }
+    out.set(g, dens * a * k);
+  }
+  return out;
+}
+const totalWeight = () => [...weights().values()].reduce((s, v) => s + v, 0);
+
+function renderSummary(){
+  const u = model.unit;
+  $('#fname').textContent = model.name;
+  $('#fsub').textContent = model.sub;
+  $('#st-od').innerHTML = `${fmt(model.R * 2 * u, 1)}<small>mm</small>`;
+  $('#st-n').innerHTML = `${model.groups.length}<small>종</small>`;
+  const w = totalWeight();
+  $('#st-w').innerHTML = w ? `${fmt(w, 0)}<small>kg/km</small>` : '—';
+  $('#st-r').innerHTML = `${model.regions.length}<small>개</small>`;
+  $('#notes').innerHTML = model.notes.map(([k, t]) => `<li class="${k === 'err' ? 'err' : ''}">${esc(t)}</li>`).join('');
+  const t = model.title || model.name.replace(/\.dxf$/i, '');
+  $('#ctitle').innerHTML = `<b>${esc(t)}</b><span>외경 Ø${fmt(model.R * 2 * u, 1)} mm · ${model.groups.length}개 구성요소</span>`;
+}
+function renderList(){
+  const ul = $('#complist'); ul.innerHTML = '';
+  for (const g of model.groups){
+    const li = document.createElement('li');
+    li.className = 'comp' + (state.sel === g ? ' sel' : '') + (g.visible ? '' : ' off');
+    const flag = (g.source === 'guess' || g.source === 'none') ? '<span class="est" title="분류를 위치로 추정했거나 미지정"></span>' : '';
+    const st = g.status ? `<span class="st ${g.status}" title="IEC 60502 검토: ${STATUS_TXT[g.status]}"></span>` : '';
+    li.innerHTML = `<button class="pick" type="button" aria-pressed="${state.sel === g}"><span class="sw" style="${swatchCSS(g)}"></span>`
+      + `<span class="t"><span class="n">${esc(nameOf(g))}</span><span class="m">${esc(MAT[g.mat].ko)}</span></span>${flag}${st}`
+      + `<span class="d">${esc(dimLabel(g))}</span></button>`
+      + `<button class="eye" type="button" aria-label="${g.visible ? '숨기기' : '보이기'}">${g.visible ? EYE : EYE_OFF}</button>`;
+    const pick = li.querySelector('.pick');
+    pick.onclick = () => select(state.sel === g ? null : g);
+    pick.onmouseenter = () => setHover(g);
+    pick.onmouseleave = () => setHover(null);
+    li.querySelector('.eye').onclick = () => { g.visible = !g.visible; if (!g.visible && state.sel === g) state.sel = null; applyAll(); renderList(); renderInfo(); buildLabels(); };
+    ul.appendChild(li);
+  }
+  $('#list-count').textContent = `${model.groups.length}개`;
+}
+const bigNum = (label, v, unit) => `<div><span>${label}</span><b>${v}<small>${unit}</small></b></div>`;
+function renderInfo(){
+  const el = $('#info'), g = state.sel;
+  if (!g || !model){ el.hidden = true; el.innerHTML = ''; return; }
+  const c = COMP[g.comp], m = MAT[g.mat], u = model.unit, D = dims(g), aMM = g.area * u * u;
+  const design = view === 'design';
+  const [srcCls, srcTxt] = {layer: ['layer', '레이어명 인식'], text: ['text', '도면 텍스트 인식'], guess: ['guess', '위치 추정'], user: ['user', '설계자 지정'], none: ['guess', '미지정']}[g.source];
+  let big = ''; const kv = [];
+  if (D.type === 'ring'){ big = bigNum('두께', fmt(D.t, 2), 'mm') + bigNum('외경', fmt(D.od, 1), 'mm'); kv.push(['내경', fmt(D.id, 2) + ' mm']); }
+  else if (D.type === 'dot'){ big = bigNum(g.count > 1 ? '가닥 지름' : '지름', fmt(D.d, 2), 'mm') + (g.count > 1 ? bigNum('수량', g.count, '가닥') : ''); }
+  else big = bigNum('단면적', fmt(aMM, 1), 'mm²') + bigNum('최대 폭', fmt(D.od, 1), 'mm');
+  if (D.type !== 'shape') kv.push(['단면적', fmt(aMM, aMM < 10 ? 2 : 1) + ' mm²']);
+  if (g.count > 1 && D.type !== 'dot') kv.push(['수량', g.count + ' 개']);
+  const wg = weights().get(g);
+  if (wg) kv.push(['중량', fmt(wg, 1) + ' kg/km']);
+  if (m.rho && g.comp === 'conductor'){
+    const ci = conductorInfo(model.iec);
+    if (ci && ci.Rcable) kv.push([ci.cores >= 2 ? '도체저항 20 °C (1심)' : '도체저항 20 °C', fmtR(ci.Rcable) + ' Ω/km']);
+  }
+  const compOpts = Object.entries(COMP).map(([k, v]) => `<option value="${k}"${k === g.comp ? ' selected' : ''}>${v.ko}</option>`).join('');
+  const matOpts = Object.entries(MAT).map(([k, v]) => `<option value="${k}"${k === g.mat ? ' selected' : ''}>${v.ko}</option>`).join('');
+  const dl = rows => rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('');
+  const mine = (model.checks || []).filter(c => c.gids.includes(g.id) && !c.table && c.status !== 'na')
+    .sort((a, b) => STATUS_RANK[b.status] - STATUS_RANK[a.status]);
+  // 꼬임 · 연입률: 이 구성요소의 선재 층별 값 (3D 형상과 같은 값)
+  const tws = [], seenTw = new Set();
+  for (const mesh of g.meshes){ const t = mesh.userData.tw; if (t && t.info && !seenTw.has(t.key)){ seenTw.add(t.key); tws.push(t); } }
+  tws.sort((a, b) => a.order - b.order);
+  const picked = state.selMesh && state.selMesh.userData.g === g && state.selMesh.userData.tw && state.selMesh.userData.tw.info ? state.selMesh.userData.tw : null;
+  const twistSec = !tws.length ? '' : `<div class="info-sec"><h3>꼬임 · 연입률</h3>`
+    + (picked ? `<p class="twist-pick">선택: <b>${esc(picked.info.name)}</b> · ${esc(dirTxt(picked.info.dir))} · 1 m당 <b>${picked.info.k.toFixed(4)} m</b></p>` : '')
+    + `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>층</th><th>가닥</th><th>방향</th><th>연피치</th><th>경사각</th><th>연입률</th></tr></thead><tbody>`
+    + tws.map(t => `<tr${picked && picked.key === t.key ? ' class="on"' : ''}><td>${esc(t.info.name)}</td><td>${t.info.n}</td><td>${t.info.dir > 0 ? 'Z' : t.info.dir < 0 ? 'S' : '—'}</td>`
+      + `<td>${t.info.dir ? fmt(t.info.lay, 0) + ' mm' : '—'}</td><td>${t.info.dir ? fmt(t.info.alpha, 1) + '°' : '0°'}</td><td>${t.info.k.toFixed(4)}</td></tr>`).join('')
+    + `</tbody></table></div>`
+    + (state.twist === 'boost' ? '<p class="ck-note" style="margin:8px 0 0">3D 꼬임 ×3 강조 표시</p>' : '')
+    + `</div>`;
+  el.innerHTML = `
+    <div class="info-head">
+      <p class="eyebrow">${g.no ? `No. ${g.no}` : '공극'}</p>
+      <h2>${esc(nameOf(g))}</h2>
+      <p class="en">${esc(c.desc)}</p>
+      <div class="chips"><span class="chip"><span class="sw" style="${swatchCSS(g)}"></span>${esc(m.ko)}</span>${design ? `<span class="badge ${srcCls}">${srcTxt}</span>` : ''}</div>
+      <button type="button" class="ibtn close" id="info-close" aria-label="닫기"><svg width="14" height="14" viewBox="0 0 14 14" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M2 2l10 10M12 2 2 12"/></svg></button>
+    </div>
+    <div class="info-sec"><h3>치수</h3><div class="big">${big}</div><dl class="kv">${dl(kv)}</dl></div>
+    ${mine.length ? `<div class="info-sec"><h3>IEC 60502</h3>${mine.map(c => ckHTML(c, true)).join('')}</div>` : ''}
+    ${twistSec}
+    <div class="info-sec"><h3>재질 특성</h3><dl class="kv">${m.props.map(([k, v]) => `<dt>${esc(k)}</dt><dd class="txt">${esc(v)}</dd>`).join('')}</dl></div>
+    ${design ? `<div class="info-sec"><h3>CAD 레이어</h3><div class="layers">${[...g.layers].map(l => `<code>${esc(l)}</code>`).join('')}${g.labels.map(l => `<code>“${esc(l)}”</code>`).join('')}</div></div>
+    <div class="info-sec"><h3>분류</h3><div class="edit">
+      <label for="ed-comp">구성요소<select id="ed-comp" class="select">${compOpts}</select></label>
+      <label for="ed-mat">재질<select id="ed-mat" class="select">${matOpts}</select></label>
+      ${g.source === 'guess' ? '<button type="button" class="btn sm" id="ed-ok">이 분류로 확정</button>' : ''}
+    </div></div>` : ''}`;
+  el.hidden = false;
+  $('#info-close').onclick = () => select(null);
+  if (design){
+    $('#ed-comp').onchange = e => { g.comp = e.target.value; g.mat = COMP[g.comp].mat; g.source = g.comp === 'unknown' ? 'none' : 'user'; refresh(); };
+    $('#ed-mat').onchange = e => { g.mat = e.target.value; if (g.comp !== 'unknown') g.source = 'user'; refresh(); };
+    const ok = $('#ed-ok'); if (ok) ok.onclick = () => { g.source = 'user'; refresh(); };
+  }
+}
+function refresh(){ renderReviewSetup(); runReview(); renderSummary(); scheduleRebuild(); }
+
+/* --- IEC 검토 패널 --- */
+function ckHTML(c, compact){
+  const click = !compact && c.gids.length && !c.table, tag = click ? 'button' : 'div';
+  const vals = c.val.map(([k, v]) => `<span><em>${esc(k)}</em>${esc(v)}</span>`).join('');
+  const table = c.table && !compact ? `<span class="tbl-wrap"><table class="tbl"><thead><tr>${c.table.head.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>`
+    + c.table.rows.map(r => `<tr>${r.map(x => `<td>${esc(x)}</td>`).join('')}</tr>`).join('') + '</tbody></table></span>' : '';
+  return `<${tag} class="ck ${c.status}"${click ? ` type="button" data-gids="${c.gids.join(',')}"` : ''}>`
+    + `<span class="pill ${c.status}">${STATUS_TXT[c.status]}</span><span class="ck-b">`
+    + `<span class="ck-t">${esc(c.title)}${c.verify ? '<span class="vtag" title="공개 자료로 원문과 대조하지 못한 기준값입니다">원문 대조 필요</span>' : ''}</span>`
+    + (vals ? `<span class="ck-v">${vals}</span>` : '')
+    + (c.status === 'fail' && c.fix ? `<span class="ck-fix">→ ${esc(c.fix)}</span>` : '')
+    + table + (c.note && !compact ? `<span class="ck-note">${esc(c.note)}</span>` : '')
+    + `</span></${tag}>`;
+}
+function renderReviewSetup(){
+  const S = model.iec, ci = conductorInfo(S);
+  const clsOpts = Object.keys(CLASSES).map(k => `<option value="${k}"${k === S.cls ? ' selected' : ''}>${k} kV · ${CLASSES[k].std.replace('IEC ', '')}</option>`).join('')
+    + `<option value="out"${S.cls === 'out' ? ' selected' : ''}>적용 범위 밖 (검토 안 함)</option>`;
+  const sizes = IEC_SIZES.includes(S.size) || !S.size ? IEC_SIZES : [...IEC_SIZES, S.size].sort((a, b) => a - b);
+  const sizeOpts = sizes.map(s => `<option value="${s}"${s === S.size ? ' selected' : ''}>${s} mm²${IEC_SIZES.includes(s) ? '' : ' (비표준)'}</option>`).join('');
+  const conds = [['round','원형 비압축 연선'], ['compact','원형 압축 연선'], ['segment','분할(밀리켄) 도체'], ['solid','단선 (class 1)']];
+  $('#rv-set').innerHTML = `
+    <label for="rv-cls">적용 등급<select id="rv-cls" class="select">${clsOpts}</select></label>
+    <label for="rv-size">공칭 단면적<select id="rv-size" class="select">${sizeOpts}</select></label>
+    <label for="rv-cond">도체 구조<select id="rv-cond" class="select">${conds.map(([k, v]) => `<option value="${k}"${k === S.cond ? ' selected' : ''}>${v}</option>`).join('')}</select></label>
+    <p class="rv-why">${esc([S.why, S.sizeWhy, S.condWhy].filter(Boolean).join(' '))}</p>`;
+  const unconfirm = () => { $('#cf-spec').checked = false; };
+  $('#rv-cls').onchange = e => { S.cls = e.target.value; S.why = '등급: 설계자 선택'; unconfirm(); refresh(); };
+  $('#rv-size').onchange = e => { S.size = +e.target.value; S.sizeWhy = '단면적: 설계자 선택'; unconfirm(); refresh(); };
+  $('#rv-cond').onchange = e => { S.cond = e.target.value; S.fill = FILL_DEFAULT[S.cond]; S.condWhy = ''; unconfirm(); refresh(); };
+
+  const fields = [];
+  if (ci && ci.stranded) fields.push(['lay-cond', '도체 연조비', S.lay.cond, v => S.lay.cond = v, 4, 40, 0.5]);
+  else if (ci && S.cond !== 'solid'){
+    fields.push(['k-assumed', '도체 연입률 (가정)', S.kAssumed, v => S.kAssumed = v, 1, 1.2, 0.005]);
+    fields.push(['fill-assumed', '도체 점적률 (가정)', S.fill, v => S.fill = v, 0.5, 1, 0.01]);
+  }
+  if (ci && ci.cores >= 2) fields.push(['lay-core', '코어 연합 연조비', S.lay.core, v => S.lay.core = v, 5, 80, 1]);
+  for (const w of wireInfo(S)) fields.push([`lay-w-${w.g.id}`, `${nameOf(w.g)} 연조비`, w.lam, v => S.lay.wire[w.g.id] = v, 3, 40, 0.5]);
+  const box = $('#rv-lay');
+  box.innerHTML = '<p>연조비 = 연피치 ÷ 층 외경</p>'
+    + `<label for="twist-mode">3D 꼬임 표시<select id="twist-mode" class="mini">${TWIST_OPTS}</select></label>`
+    + fields.map(([id, label, v, , lo, hi, st]) => `<label for="${id}">${esc(label)}<input id="${id}" type="number" inputmode="decimal" min="${lo}" max="${hi}" step="${st}" value="${v}"></label>`).join('');
+  $('#twist-mode').value = state.twist;
+  $('#twist-mode').onchange = e => setTwist(e.target.value);
+  for (const [id, , , set, lo, hi] of fields){
+    $('#' + id).addEventListener('input', e => {
+      const v = parseFloat(e.target.value);
+      if (!(v >= lo && v <= hi)) return;
+      set(v); runReview(); scheduleRebuild();
+    });
+  }
+}
+function runReview(){
+  evaluate();
+  let no = 0;
+  for (const g of model.groups) g.no = g.comp === 'void' ? null : ++no;
+  const C = model.checks, cls = CLASSES[model.iec.cls];
+  const n = st => C.filter(c => c.status === st).length, f = n('fail'), w = n('warn'), p = n('pass'), tot = f + w + p || 1;
+  $('#rv-sum').innerHTML = cls
+    ? `<div class="f"><b>${f}</b><span>부적합</span></div><div class="w"><b>${w}</b><span>확인 필요</span></div><div class="p"><b>${p}</b><span>적합</span></div>`
+      + `<div class="rv-bar" aria-hidden="true"><i style="width:${f / tot * 100}%;background:var(--danger)"></i><i style="width:${w / tot * 100}%;background:var(--warn)"></i><i style="width:${p / tot * 100}%;background:var(--ok)"></i></div>`
+    : '';
+  const secs = [];
+  for (const c of C.filter(c => c.sec !== LAY_SEC)){ let s = secs.find(x => x.name === c.sec); if (!s) secs.push(s = {name: c.sec, items: []}); s.items.push(c); }
+  $('#rv-main').innerHTML = secs.map(s => `<div class="rv-sec"><h3>${esc(s.name)}</h3>${s.items.map(c => ckHTML(c)).join('')}</div>`).join('');
+  $('#rv-lay-list').innerHTML = C.filter(c => c.sec === LAY_SEC).map(c => ckHTML(c)).join('');
+  document.querySelectorAll('#panel-iec button.ck').forEach(b => b.onclick = () => {
+    const g = model.groups[+b.dataset.gids.split(',')[0]];
+    if (g){ if (!g.visible){ g.visible = true; } select(g); }
+  });
+  const badge = $('#iec-badge');
+  badge.hidden = !cls;
+  badge.className = 'tab-badge ' + (f ? 'fail' : w ? 'warn' : 'pass');
+  badge.textContent = f ? f : w ? w : '✓';
+  badge.title = f ? `부적합 ${f}건` : w ? `확인 필요 ${w}건` : '모두 적합';
+  const vd = $('#verdict');
+  vd.hidden = false;
+  vd.className = 'verdict design-only ' + (!cls ? 'na' : f ? 'fail' : w ? 'warn' : 'pass');
+  vd.innerHTML = !cls
+    ? `<span class="vd-dot"></span><b>IEC 60502 적용 범위 밖</b><span class="vd-s">연입률만 검토</span>`
+    : `<span class="vd-dot"></span><b>${cls.std} · ${model.iec.cls} kV</b><span class="vd-s">${f ? `부적합 ${f}건` : '부적합 없음'}${w ? ` · 확인 ${w}건` : ''}</span>`;
+  vd.setAttribute('aria-label', 'IEC 60502 검토 결과 보기');
+  applyAll(); renderList(); renderInfo(); renderReport(); renderConfirm(); buildLabels();
+}
+function setTab(id){
+  for (const t of ['comp', 'iec']){
+    const on = t === id;
+    $('#tab-' + t).setAttribute('aria-selected', String(on));
+    $('#panel-' + t).hidden = !on;
+  }
+}
+function setColor(c){
+  state.color = c;
+  document.querySelectorAll('[data-color]').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.color === c)));
+  $('#legend').hidden = c !== 'check';
+  if (model){ applyAll(); renderList(); renderInfo(); renderReport(); }
+}
+function select(g, mesh){
+  state.sel = g || null;
+  state.selMesh = g && mesh ? mesh : null;
+  if (g && controls.autoRotate) setSpin(false);
+  applyAll(); renderList(); renderInfo(); renderReport(); markLabelSel();
+}
+function setSpin(on){
+  controls.autoRotate = on;
+  const b = $('#spin'); b.setAttribute('aria-pressed', String(on));
+  b.innerHTML = on
+    ? '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><rect x="4" y="3.2" width="2.6" height="9.6" rx=".6"/><rect x="9.4" y="3.2" width="2.6" height="9.6" rx=".6"/></svg>'
+    : '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M5 3.2v9.6L12.5 8z"/></svg>';
+  b.title = on ? '자동 회전 멈춤' : '자동 회전';
+}
+function setMode(mode){
+  const prev = state.mode; state.mode = mode;
+  document.querySelectorAll('[data-mode]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === mode)));
+  if (!model) return;
+  computeLengths(false);
+  if (state.twist !== 'off') rebuildGeometry();
+  if (mode === 'section') setSpin(false);
+  goTo(viewFor(mode, prev !== 'section' && mode !== 'section'));
+}
+function setTwist(v){
+  state.twist = v;
+  $('#twist').value = v;
+  const t2 = $('#twist-mode'); if (t2) t2.value = v;
+  if (model){ rebuildGeometry(); renderInfo(); }
+}
+function showError(msg){
+  const ul = $('#notes');
+  ul.innerHTML = `<li class="err">${esc(msg)}</li>` + ul.innerHTML;
+  ul.scrollIntoView({block: 'nearest', behavior: reduceMotion ? 'auto' : 'smooth'});
+}
+
+/* =====================================================================
+   8. 파일 불러오기
+   ===================================================================== */
+const UNITS = {1: 25.4, 4: 1, 5: 10, 6: 1000};
+let view = 'report';              // 'report' 보고 화면 | 'design' 설계 화면
+let reportData = null;            // 게시된 보고 (report.json)
+let reportModel = null, workModel = null;
+let canPublish = false, moreOpen = false;
+
+// DXF 문자열 → 분석된 모델 (화면에 올리지는 않음)
+function parseModel(text, name, sub){
+  let res;
+  try {
+    const dxf = parseDXF(text);
+    const prims = {closed: [], open: [], texts: []};
+    flatten(dxf.entities, dxf.blocks, I2, 0, null, prims);
+    res = analyze(prims);
+    if (!res.error) res.unit = UNITS[parseInt(dxf.header.$INSUNITS, 10)] || 1;
+  } catch (err){
+    console.error(err);
+    res = {error: 'DXF 해석 실패 — ASCII DXF인지 확인 (' + err.message + ')'};
+  }
+  if (res.error) return res;
+  const prev = model;
+  model = Object.assign(res, {name, sub, text});
+  model.iec = iecAuto(model);
+  const m = model; model = prev;
+  return m;
+}
+// 모델을 3D · 패널에 올림
+function show(m){
+  if (model && model !== m) for (const g of model.groups){ if (g.mtl) g.mtl.dispose(); if (g.lineMat) g.lineMat.dispose(); g.mtl = g.lineMat = null; }
+  model = m;
+  state.sel = null; state.selMesh = null; state.hover = null;
+  if (!m){
+    for (const x of meshes){ x.geometry.dispose(); x.children.forEach(c => c.geometry.dispose()); }
+    cable.clear(); meshes = [];
+    $('#info').hidden = true; buildLabels(); renderReport();
+    return;
+  }
+  $('#unit').value = String(m.unit);
+  evaluate();
+  buildMeshes();
+  renderSummary(); renderReviewSetup(); runReview();
+  goTo(viewFor(state.mode, false), false);
+}
+function applyReport(m, d){
+  if (d.unit) m.unit = d.unit;
+  if (d.iec){
+    const S = m.iec, L = d.iec.lay || {};
+    Object.assign(S, {cls: d.iec.cls, size: d.iec.size, cond: d.iec.cond, fill: d.iec.fill, kAssumed: d.iec.kAssumed});
+    S.lay = {cond: L.cond ?? S.lay.cond, core: L.core ?? S.lay.core, wire: {...(L.wire || {})}};
+  }
+  for (const o of d.overrides || []){
+    const g = m.groups.find(x => x.key === o.key);
+    if (g && COMP[o.comp] && MAT[o.mat]){ g.comp = o.comp; g.mat = o.mat; g.source = 'user'; }
+  }
+  m.meta = d.meta || null;
+}
+function modelFromReport(d){
+  const smp = d.sample && SAMPLES.find(s => s.id === d.sample);
+  const text = smp ? smp.make() : d.dxf;
+  if (!text) return null;
+  const m = parseModel(text, d.name || '', d.sub || '');
+  if (m.error) return null;
+  m.sampleId = d.sample || null;
+  applyReport(m, d);
+  return m;
+}
+function snapshot(m, meta){
+  const S = m.iec;
+  return {v: 1, sample: m.sampleId || null, dxf: m.sampleId ? null : m.text, name: m.name, sub: m.sub, unit: m.unit,
+    iec: {cls: S.cls, size: S.size, cond: S.cond, fill: S.fill, kAssumed: S.kAssumed, lay: {cond: S.lay.cond, core: S.lay.core, wire: {...S.lay.wire}}},
+    overrides: m.groups.map(g => ({key: g.key, comp: g.comp, mat: g.mat})), meta};
+}
+function setView(v){
+  view = v;
+  $('#app').dataset.view = v;
+  document.querySelectorAll('#viewseg [data-view]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.view === v)));
+  if (v === 'report'){
+    if (state.color === 'code') setColor('real');
+    if (reportData && !reportModel) reportModel = modelFromReport(reportData);
+    show(reportModel);
+  } else {
+    if (!workModel){
+      workModel = reportData ? modelFromReport(reportData) : null;
+      if (!workModel){ const s0 = SAMPLES[0]; workModel = parseModel(s0.make(), s0.label, s0.sub); workModel.sampleId = s0.id; }
+      $('#sample').value = workModel.sampleId || '';
+    }
+    show(workModel);
+  }
+}
+function loadWork(text, name, sub, sampleId){
+  const m = parseModel(text, name, sub);
+  if (m.error){ showError(m.error); return false; }
+  m.sampleId = sampleId || null;
+  workModel = m;
+  $('#cf-spec').checked = false;
+  $('#cf-msg').textContent = ''; $('#cf-msg').className = 'cf-msg';
+  show(m);
+  return true;
+}
+async function loadFile(file){
+  if (!file) return;
+  const buf = await file.arrayBuffer();
+  const head = new TextDecoder('windows-1252').decode(new Uint8Array(buf.slice(0, 24)));
+  if (/\.dwg$/i.test(file.name) || /^AC10\d\d/.test(head)){ showError('DWG 불가 — CAD에서 DXF로 저장 후 사용'); return; }
+  if (head.startsWith('AutoCAD Binary DXF')){ showError('바이너리 DXF 불가 — ASCII DXF로 저장'); return; }
+  if (loadWork(decodeBuffer(buf), file.name, `${fmt(file.size / 1024, 1)} KB`)) $('#sample').value = '';
+}
+
+/* --- 게시: report.json 만 새 버전으로 올린다 (페이지는 그대로) --- */
+let artifactNs;
+async function getArtifact(){
+  if (artifactNs !== undefined) return artifactNs;
+  artifactNs = (window.claude && window.claude.use) ? await window.claude.use('artifact') : null;
+  return artifactNs;
+}
+async function loadReportData(){
+  try {
+    const r = await fetch('report.json', {cache: 'no-store'});
+    if (!r.ok) return null;
+    const d = await r.json();
+    return d && d.v ? d : null;
+  } catch (e){ return null; }
+}
+async function detectAccess(){
+  if (!(window.claude && window.claude.use)) canPublish = true;          // 로컬 미리보기
+  else {
+    const user = await window.claude.use('user');
+    canPublish = user ? await user.canEdit() : false;
+  }
+  $('#viewseg').hidden = !canPublish;
+  if (canPublish && !reportData) setView('design');
+  else renderReport();
+  renderConfirm();
+}
+function cfMsg(text, kind){ const el = $('#cf-msg'); el.textContent = text; el.className = 'cf-msg' + (kind ? ' ' + kind : ''); }
+async function publishReport(){
+  const m = workModel; if (!m) return;
+  const d = new Date(), date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const data = snapshot(m, {designer: $('#cf-name').value.trim(), rev: $('#cf-rev').value.trim(), date, example: false});
+  $('#cf-go').disabled = true;
+  cfMsg('게시 중');
+  const art = await getArtifact();
+  if (!art){
+    if (!window.claude){ reportData = data; reportModel = null; cfMsg('로컬 미리보기: 게시 안 됨 (화면만 반영)', 'ok'); setView('report'); return; }
+    cfMsg('이 화면에서는 게시할 수 없음', 'err'); renderConfirm(); return;
+  }
+  try {
+    await art.publish({'report.json': {content: JSON.stringify(data), contentType: 'application/json'}});
+    reportData = data; reportModel = null;
+    cfMsg(`게시 완료 · ${date}`, 'ok');
+    setView('report');
+  } catch (e){
+    const code = e && e.code;
+    const text = code === 'conflict' ? '다른 게시가 먼저 반영됨 — 새 버전으로 다시 열림'
+      : ['not_writer','not_granted','consent_required'].includes(code) ? '게시 권한 없음'
+      : ['capability_disabled','capability_removed','not_declared'].includes(code) ? '이 화면에서는 게시할 수 없음'
+      : code === 'too_large' ? '도면 용량 초과'
+      : code === 'rate_limited' ? '잠시 후 다시 시도' : '게시 실패 — 다시 시도';
+    cfMsg(text, 'err');
+    renderConfirm();
+  }
+}
+
+/* --- 설계자 확인 카드 --- */
+const COND_TXT = {round: '원형 연선', compact: '압축 연선', segment: '분할 도체', solid: '단선'};
+function renderConfirm(){
+  if (!model || model !== workModel) return;
+  const guess = model.groups.filter(g => g.source === 'guess').length, none = model.groups.filter(g => g.source === 'none').length;
+  const okLayers = !guess && !none, S = model.iec, spec = $('#cf-spec').checked;
+  const row = $('#cf-layers');
+  row.className = 'cf-row ' + (okLayers ? 'ok' : 'todo');
+  row.querySelector('.cf-ic').textContent = okLayers ? '✓' : '!';
+  $('#cf-layers-v').textContent = okLayers ? '완료' : `추정 ${guess} · 미지정 ${none}`;
+  $('#cf-accept').hidden = !guess;
+  $('#cf-spec-row').className = 'cf-row ' + (spec ? 'ok' : 'todo');
+  $('#cf-spec-v').textContent = `${CLASSES[S.cls] ? S.cls + ' kV' : '범위 밖'} · ${fmt(S.size, 0)} mm² · ${COND_TXT[S.cond]}`;
+  const ready = okLayers && spec && $('#cf-name').value.trim() && $('#cf-rev').value.trim();
+  $('#cf-go').disabled = !(ready && canPublish);
+}
+
+/* --- 보고 화면 --- */
+const SHORT = {CU:'구리', AL:'알루미늄', STEEL:'강', LEAD:'납', XLPE:'XLPE', EPR:'EPR', PVC:'PVC', PE:'PE', LSZH:'LSZH', SEMI:'반도전', WBTAPE:'수밀 테이프', WBCOMP:'수밀 컴파운드', PP:'PP', PET:'PET', NONWOVEN:'부직포', MICA:'마이카', VOID:'공기', UNSET:'미지정'};
+function checksHTML(C){
+  const secs = [];
+  for (const c of C){ let s = secs.find(x => x.name === c.sec); if (!s) secs.push(s = {name: c.sec === LAY_SEC ? '연입률 · 세부' : c.sec, items: [], key: c.sec}); s.items.push(c); }
+  return secs.map(s => `<div class="rv-sec"><h3>${esc(s.name)}</h3>${s.items.map(c => ckHTML(c)).join('')}</div>`).join('');
+}
+function renderReport(){
+  const el = $('#report');
+  if (view !== 'report') return;
+  if (!model || model !== reportModel){
+    el.innerHTML = `<section class="card rp-empty"><b>게시된 보고 없음</b><span>${canPublish ? '설계 화면에서 도면 확인 후 게시' : '설계자 게시 대기 중'}</span>`
+      + (canPublish ? '<button type="button" class="btn primary" id="rp-to-design">설계 화면</button>' : '') + '</section>';
+    const b = $('#rp-to-design'); if (b) b.onclick = () => setView('design');
+    return;
+  }
+  const m = model, S = m.iec, cls = CLASSES[S.cls], u = m.unit, C = m.checks || [];
+  const fails = C.filter(c => c.status === 'fail'), warns = C.filter(c => c.status === 'warn');
+  const vcls = !cls ? 'na' : fails.length ? 'fail' : warns.length ? 'warn' : 'pass';
+  const vtxt = !cls ? '규격 판정 대상 아님' : fails.length ? `조치 필요 ${fails.length}건` : warns.length ? `확인 필요 ${warns.length}건` : '기준 충족';
+  const vsub = cls && fails.length && warns.length ? `확인 필요 ${warns.length}건` : '';
+  const ins = m.groups.find(g => g.comp === 'insulation'), T = ins && ringT(ins.regions[0]), cond = m.groups.find(g => g.comp === 'conductor');
+  const meta = m.meta || {};
+  const issue = c => {
+    const g = c.gids.length ? m.groups[c.gids[0]] : null;
+    return `<button type="button" class="iss ${c.status}" data-g="${g ? g.id : ''}"><span class="num ${c.status === 'fail' ? 'fail' : ''}">${g && g.no ? g.no : '–'}</span>`
+      + `<span class="iss-b"><b>${esc(c.say || c.title)}</b>${c.fix ? `<span>조치: ${esc(c.fix)}</span>` : ''}</span></button>`;
+  };
+  el.innerHTML = `
+    <section class="card rp-head">
+      <p class="rp-eyebrow">${esc(cls ? `${cls.std} · U0/U ${S.cls} kV` : 'IEC 60502 범위 밖')}</p>
+      <h2 class="rp-title">${esc((m.title || m.name.replace(/\.dxf$/i, '')).replace(/-/g, '‑'))}</h2>
+      <div class="vbox ${vcls}"><i></i><b>${vtxt}</b>${vsub ? `<span>${vsub}</span>` : ''}</div>
+      <dl class="kf">
+        <div><dt>외경</dt><dd>${fmt(m.R * 2 * u, 1)}<small>mm</small></dd></div>
+        <div><dt>중량</dt><dd>${fmt(totalWeight(), 0)}<small>kg/km</small></dd></div>
+        <div><dt>도체</dt><dd><em>${cond ? SHORT[cond.mat] || '' : ''}</em>${fmt(S.size, S.size < 10 ? 1 : 0)}<small>mm²</small></dd></div>
+        <div><dt>절연</dt><dd><em>${ins ? SHORT[ins.mat] || '' : ''}</em>${T ? fmt(T.avg * u, 2) : '—'}<small>mm</small></dd></div>
+      </dl>
+    </section>
+    ${fails.length ? `<section class="card rp-sec"><h3>조치 필요</h3>${fails.map(issue).join('')}</section>` : ''}
+    ${warns.length ? `<section class="card rp-sec"><h3>확인 필요</h3>${warns.map(issue).join('')}</section>` : ''}
+    <section class="card rp-sec"><h3>구성 (중심 → 외곽)</h3>
+      ${m.groups.filter(g => g.no).map(g => `<button type="button" class="lyr${state.sel === g ? ' sel' : ''}" data-g="${g.id}"><span class="num ${g.status === 'fail' ? 'fail' : ''}">${g.no}</span>`
+        + `<span class="sw" style="${swatchCSS(g)}"></span><span class="t">${esc(nameOf(g))}<small>${esc(SHORT[g.mat] || MAT[g.mat].ko)}</small></span>`
+        + `<span class="d">${esc(dimLabel(g))}</span>${g.status && g.status !== 'pass' ? `<span class="st ${g.status}"></span>` : ''}</button>`).join('')}
+    </section>
+    <section class="card rp-sec">
+      <button type="button" class="more-btn" id="rp-more" aria-expanded="${moreOpen}">상세 판정 · 연입률</button>
+      <div class="more-body" ${moreOpen ? '' : 'hidden'}>${moreOpen ? checksHTML(C) : ''}</div>
+    </section>
+    <div class="rp-foot">
+      <span>${meta.example ? '<span class="ex-tag">예제</span>' : ''}설계 확인 <b>${esc(meta.designer || '—')}</b> · Rev.${esc(meta.rev || '—')} · ${esc(meta.date || '—')}</span>
+      <button type="button" class="btn sm" id="rp-cost">재료비</button>
+    </div>`;
+  el.querySelectorAll('[data-g]').forEach(b => b.onclick = () => {
+    const g = m.groups[+b.dataset.g]; if (!g || b.dataset.g === '') return;
+    g.visible = true; select(state.sel === g ? null : g);
+  });
+  el.querySelectorAll('button.ck[data-gids]').forEach(b => b.onclick = () => { const g = m.groups[+b.dataset.gids.split(',')[0]]; if (g) select(g); });
+  $('#rp-more').onclick = () => { moreOpen = !moreOpen; renderReport(); };
+  $('#rp-cost').onclick = openCost;
+}
+
+/* --- 재료비 (버튼으로만 열림) --- */
+function loadPrices(){ try { return JSON.parse(localStorage.getItem('cable-prices') || '{}') || {}; } catch (e){ return {}; } }
+function savePrices(p){ try { localStorage.setItem('cable-prices', JSON.stringify(p)); } catch (e){} }
+function openCost(){
+  if (!model) return;
+  const byMat = new Map();
+  for (const [g, w] of weights()) byMat.set(g.mat, (byMat.get(g.mat) || 0) + w);
+  const rows = [...byMat.entries()].sort((a, b) => b[1] - a[1]), tot = rows.reduce((s, r) => s + r[1], 0) || 1, prices = loadPrices();
+  $('#cost-body').innerHTML = rows.map(([mat, w]) => `<tr><td>${esc(MAT[mat].ko)}</td><td>${fmt(w, 1)}</td>`
+    + `<td><span class="cost-bar" style="width:${Math.max(2, w / tot * 64)}px"></span>${fmt(w / tot * 100, 1)} %</td>`
+    + `<td><input type="number" min="0" step="10" id="pr-${mat}" data-m="${mat}" data-w="${w}" value="${prices[mat] ?? ''}" placeholder="0" aria-label="${esc(MAT[mat].ko)} 단가"></td><td class="amt">—</td></tr>`).join('');
+  $('#cost-w').textContent = fmt(tot, 1);
+  const update = () => {
+    let sum = 0, any = false;
+    $('#cost-body').querySelectorAll('tr').forEach(tr => {
+      const inp = tr.querySelector('input'), p = parseFloat(inp.value), w = +inp.dataset.w;
+      const a = p > 0 ? p * w : null; if (a != null){ sum += a; any = true; }
+      tr.querySelector('.amt').textContent = a != null ? fmt(a, 0) : '—';
+    });
+    $('#cost-sum').textContent = any ? fmt(sum, 0) + ' 원' : '단가 입력';
+  };
+  $('#cost-body').querySelectorAll('input').forEach(inp => inp.addEventListener('input', () => {
+    const p = loadPrices(), v = parseFloat(inp.value);
+    if (v > 0) p[inp.dataset.m] = v; else delete p[inp.dataset.m];
+    savePrices(p); update();
+  }));
+  update();
+  $('#cost').hidden = false;
+  $('#cost-close').focus();
+}
+const closeCost = () => { $('#cost').hidden = true; };
+
+/* --- 3D 라벨: 번호 · 이름 · 재질, 지시선 --- */
+let labelsOn = true, lblItems = [], lblMeasured = false, lblTick = 0;
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { lblMeasured = false; });
+function buildLabels(){
+  const box = $('#labels');
+  box.querySelectorAll('.lbl').forEach(e => e.remove());
+  lblItems = [];
+  if (!model) return;
+  for (const g of model.groups){
+    if (!g.no || !g.visible) continue;
+    const el = document.createElement('div');
+    el.className = 'lbl' + (g.status === 'fail' ? ' fail' : '') + (state.sel === g ? ' sel' : '');
+    el.innerHTML = `<span class="num ${g.status === 'fail' ? 'fail' : ''}">${g.no}</span><span>${esc(nameOf(g))}</span><small>${esc(SHORT[g.mat] || MAT[g.mat].ko)}</small>`;
+    el.onclick = () => select(state.sel === g ? null : g);
+    box.appendChild(el);
+    const out = [], inn = [];
+    for (const rg of g.regions){
+      const P = contourPts(rg.outer, model), st = Math.max(1, Math.floor(P.length / 40));
+      for (let i = 0; i < P.length; i += st) out.push([P[i][0], P[i][1], rg]);
+      for (const h of rg.holes){ const Q = contourPts(h, model), sq = Math.max(1, Math.floor(Q.length / 40)); for (let i = 0; i < Q.length; i += sq) inn.push([Q[i][0], Q[i][1], rg]); }
+    }
+    lblItems.push({g, el, out, inn, w: 0, cw: 0});
+  }
+  lblMeasured = false;
+}
+function markLabelSel(){ for (const it of lblItems) it.el.classList.toggle('sel', state.sel === it.g); }
+const _v3 = new THREE.Vector3();
+function rotPt(p, z){
+  const tw = p[2] && p[2]._tw; if (!tw || !tw.rate) return [p[0], p[1]];
+  const a = tw.rate * z, c = Math.cos(a), s = Math.sin(a), dx = p[0] - tw.cx, dy = p[1] - tw.cy;
+  return [tw.cx + dx * c - dy * s, tw.cy + dx * s + dy * c];
+}
+function support(list, dx, dy, z){
+  let best = null, bd = -Infinity;
+  for (const p of list){ const q = rotPt(p, z), d = q[0] * dx + q[1] * dy; if (d > bd){ bd = d; best = q; } }
+  return best;
+}
+function toScreen(x, y, z, W, H){
+  _v3.set(x, y, z); cable.localToWorld(_v3); _v3.project(camera);
+  return [(_v3.x + 1) / 2 * W, (1 - _v3.y) / 2 * H, _v3.z];
+}
+function updateLabels(){
+  const box = $('#labels'), svg = $('#lbl-svg');
+  const on = labelsOn && model && lblItems.length;
+  if (box.hidden === !!on) box.hidden = !on;
+  if (!on) return;
+  const W = stageEl.clientWidth, H = stageEl.clientHeight;
+  const cov = sideCover(), minX = cov.left + 14, maxX = W - cov.right - 14;
+  const compact = maxX - minX < 560;
+  box.classList.toggle('compact', compact);
+  if (++lblTick % 90 === 0) lblMeasured = false;          // 글꼴 로딩 · 문구 변화 반영
+  if (!lblMeasured || lblMeasured !== (compact ? 'c' : 'f')){
+    for (const it of lblItems) it.w = it.el.offsetWidth;
+    lblMeasured = compact ? 'c' : 'f';
+  }
+  cable.updateMatrixWorld(true);
+  let maxL = 0; for (const g of model.groups) maxL = Math.max(maxL, g.len);
+  _v3.copy(camera.position); cable.worldToLocal(_v3);
+  const dz = _v3.z - maxL / 2, dxy = Math.hypot(_v3.x, _v3.y);
+  const face = Math.abs(dz) > dxy * 2.2;                 // 축 방향에서 보는 중 (단면 보기)
+  const zFace = dz > 0 ? 1 : 0;                           // 보이는 끝면
+  const thCam = Math.atan2(_v3.y, _v3.x);
+  const h = 26, items = lblItems, lines = [];
+  // 각 라벨의 기준점(3D) 계산
+  const anchor = (it, th) => {
+    const g = it.g, dx = Math.cos(th), dy = Math.sin(th);
+    let zCover = 0;
+    for (const o of model.groups) if (o.level > g.level && o.visible && o.comp !== 'void') zCover = Math.max(zCover, o.len);
+    if (!face && g.len - zCover > 0.06){
+      const z = (zCover + g.len) / 2, p = support(it.out, dx, dy, z);
+      return p ? [p[0], p[1], z] : null;
+    }
+    const z = zFace ? g.len : 0, po = support(it.out, dx, dy, z), pi = it.inn.length ? support(it.inn, dx, dy, z) : null;
+    if (!po) return null;
+    const m = pi ? [(po[0] + pi[0]) / 2, (po[1] + pi[1]) / 2] : [po[0] * 0.85, po[1] * 0.85];
+    return [m[0], m[1], z + (zFace ? 0.001 : -0.001)];
+  };
+  const place = [];
+  if (!face){
+    // 옆에서 보기: 위 · 아래 두 줄에 번갈아 배치
+    const up = [thCam + 0.95, thCam - 0.95].sort((a, b) => Math.sin(b) - Math.sin(a));
+    items.forEach((it, i) => {
+      const side = i % 2 === 0 ? 0 : 1, a = anchor(it, up[side]); if (!a) return;
+      const s = toScreen(a[0], a[1], a[2], W, H);
+      place.push({it, side, ax: s[0], ay: s[1]});
+    });
+    for (const side of [0, 1]){
+      const row = place.filter(p => p.side === side).sort((a, b) => a.ax - b.ax);
+      if (!row.length) continue;
+      const top = window.innerWidth > 860 ? 76 : 12;
+      const y = side === 0 ? Math.max(top, Math.min(...row.map(p => p.ay)) - 44 - h) : Math.min(H - 118, Math.max(...row.map(p => p.ay)) + 44);
+      let x = -Infinity;
+      for (const p of row){ p.x = Math.max(p.ax - p.it.w / 2, x + 8); x = p.x + p.it.w; p.y = y; }
+      const over = x - maxX; if (over > 0) for (const p of row) p.x -= over;
+      const under = minX - row[0].x; if (under > 0) for (const p of row) p.x += under;
+      for (const p of row){ p.lx = Math.min(Math.max(p.ax, p.x + 10), p.x + p.it.w - 10); p.ly = side === 0 ? p.y + h : p.y; }
+    }
+  } else {
+    // 끝면을 정면으로 볼 때: 좌 · 우 두 열
+    const c0 = toScreen(0, 0, zFace ? maxL : 0, W, H), ex = toScreen(1, 0, zFace ? maxL : 0, W, H), ey = toScreen(0, 1, zFace ? maxL : 0, W, H);
+    const a11 = ex[0] - c0[0], a21 = ex[1] - c0[1], a12 = ey[0] - c0[0], a22 = ey[1] - c0[1], det = a11 * a22 - a12 * a21 || 1;
+    const Rs = Math.hypot(a11, a21);
+    const n = items.length, half = Math.ceil(n / 2);
+    items.forEach((it, i) => {
+      const right = i % 2 === 0, k = Math.floor(i / 2), m = right ? half : n - half;
+      const phi = (m > 1 ? -0.9 + 1.8 * k / (m - 1) : 0);                  // 화면 각도(라디안), 위→아래
+      const sx = right ? Math.cos(phi) : -Math.cos(phi), sy = Math.sin(phi);
+      const lx = (a22 * sx - a12 * sy) / det, ly = (-a21 * sx + a11 * sy) / det;
+      const a = anchor(it, Math.atan2(ly, lx)); if (!a) return;
+      const s = toScreen(a[0], a[1], a[2], W, H);
+      place.push({it, side: right ? 1 : 0, ax: s[0], ay: s[1]});
+    });
+    for (const side of [0, 1]){
+      const col = place.filter(p => p.side === side).sort((a, b) => a.ay - b.ay);
+      let y = -Infinity;
+      for (const p of col){
+        p.y = Math.max(p.ay - h / 2, y + 6); y = p.y + h;
+        p.x = side === 1 ? Math.min(c0[0] + Rs + 36, maxX - p.it.w) : Math.max(c0[0] - Rs - 36 - p.it.w, minX);
+      }
+      const over = y - (H - 110); if (over > 0) for (const p of col) p.y -= over;
+      for (const p of col){ p.lx = side === 1 ? p.x : p.x + p.it.w; p.ly = p.y + h / 2; }
+    }
+  }
+  const shown = new Set(place.map(p => p.it));
+  for (const it of items) if (!shown.has(it)) it.el.style.transform = 'translate(-9999px,0)';
+  for (const p of place){
+    p.it.el.style.transform = `translate(${Math.round(p.x)}px,${Math.round(p.y)}px)`;
+    const f = p.it.g.status === 'fail' ? ' class="fail"' : '';
+    lines.push(`<line${f} x1="${p.ax.toFixed(1)}" y1="${p.ay.toFixed(1)}" x2="${p.lx.toFixed(1)}" y2="${p.ly.toFixed(1)}"/><circle${f} cx="${p.ax.toFixed(1)}" cy="${p.ay.toFixed(1)}" r="2.6"/>`);
+  }
+  svg.innerHTML = lines.join('');
+}
+
+/* =====================================================================
+   9. 예제 도면 (DXF 문자열로 생성해 같은 경로로 해석)
+   ===================================================================== */
+function dxfWriter(){
+  const L = [];
+  const add = (c, v) => { L.push(String(c), typeof v === 'number' ? String(+v.toFixed(5)) : v); };
+  const w = {
+    circle(layer, x, y, r){ add(0, 'CIRCLE'); add(8, layer); add(10, x); add(20, y); add(30, 0); add(40, r); return w; },
+    arc(layer, x, y, r, a0, a1){ add(0, 'ARC'); add(8, layer); add(10, x); add(20, y); add(30, 0); add(40, r); add(50, a0); add(51, a1); return w; },
+    lwpoly(layer, verts, closed){ add(0, 'LWPOLYLINE'); add(8, layer); add(90, verts.length); add(70, closed ? 1 : 0); for (const v of verts){ add(10, v[0]); add(20, v[1]); if (v[2]) add(42, v[2]); } return w; },
+    text(layer, x, y, h, s){ add(0, 'TEXT'); add(8, layer); add(10, x); add(20, y); add(30, 0); add(40, h); add(1, s); return w; },
+    done(){ return ['0', 'SECTION', '2', 'HEADER', '9', '$INSUNITS', '70', '4', '0', 'ENDSEC', '0', 'SECTION', '2', 'ENTITIES', ...L, '0', 'ENDSEC', '0', 'EOF'].join('\n'); }
+  };
+  return w;
+}
+// 22.9kV 배전용 동심중성선 수밀 케이블 (소선 61가닥 원형 도체)
+function sampleCNCV(){
+  // 소선 Ø2.60 × 61가닥 ≈ 324 mm² (층 간격 2.64 mm)
+  const w = dxfWriter(), d = 2.64, rs = 1.30;
+  w.circle('CONDUCTOR_CU', 0, 0, rs);
+  for (let k = 1; k <= 4; k++){ const n = 6 * k; for (let j = 0; j < n; j++){ const a = j / n * TAU + (k % 2 ? 0 : Math.PI / n); w.circle('CONDUCTOR_CU', k * d * Math.cos(a), k * d * Math.sin(a), rs); } }
+  w.circle('WB_COMPOUND', 0, 0, 11.90).circle('SEMICON_INNER', 0, 0, 12.70).circle('INSULATION_XLPE', 0, 0, 19.30)
+   .circle('SEMICON_OUTER', 0, 0, 20.30).circle('WB_TAPE_SEMICON', 0, 0, 20.80);
+  const nr = 0.8, rc = 20.80 + nr + 0.03;
+  for (let j = 0; j < 40; j++){ const a = j / 40 * TAU; w.circle('NEUTRAL_CU', rc * Math.cos(a), rc * Math.sin(a), nr); }
+  w.circle('WB_YARN', 0, 0, rc + nr + 0.03).circle('WB_TAPE', 0, 0, rc + nr + 0.53).circle('SHEATH_PVC', 0, 0, rc + nr + 3.73);
+  w.text('TITLE', -24, -35, 2.5, '22.9kV CNCV-W 1C 325SQ');
+  return w.done();
+}
+// 0.6/1kV 3심 저압 케이블 (한글 레이어명, 원호·벌지 폴리선 사용)
+function sampleTFR(){
+  const w = dxfWriter(), rc = 3.0, ri = 3.9, off = 4.55;
+  [['갈색', 90], ['흑색', 210], ['회색', 330]].forEach(([col, deg]) => {
+    const x = off * Math.cos(deg * D2R), y = off * Math.sin(deg * D2R);
+    w.circle('도체', x, y, rc).circle('절연체_XLPE_' + col, x, y, ri);
+  });
+  w.circle('개재물_PP', 0, 0, 8.5);
+  w.arc('바인더_테이프_PET', 0, 0, 8.62, 0, 180).arc('바인더_테이프_PET', 0, 0, 8.62, 180, 360);
+  w.lwpoly('시스_PVC', [[10.42, 0, 1], [-10.42, 0, 1]], true);
+  w.text('TITLE', -12, -15, 1.4, '0.6/1kV TFR-CV 3C 25SQ');
+  return w.done();
+}
+// 154kV 송전용 XLPE 케이블 (6분할 밀리켄 도체, 알루미늄 주름 시스)
+function sampleHV(){
+  const w = dxfWriter(), R0 = 20.8, gp = 0.6, N = 6;
+  for (let k = 0; k < N; k++){
+    const t0 = k / N * TAU, t1 = (k + 1) / N * TAU, tm = (t0 + t1) / 2;
+    const t = Math.sqrt(R0 * R0 - gp * gp / 4), h = gp / 2;
+    const A = [gp / Math.sin(Math.PI / N) / 2 * Math.cos(tm), gp / Math.sin(Math.PI / N) / 2 * Math.sin(tm)];
+    const B = [t * Math.cos(t0) - h * Math.sin(t0), t * Math.sin(t0) + h * Math.cos(t0)];
+    const Cp = [t * Math.cos(t1) + h * Math.sin(t1), t * Math.sin(t1) - h * Math.cos(t1)];
+    const phi = (t1 - t0) - 2 * Math.asin(h / R0);
+    w.lwpoly('CONDUCTOR_CU_MILLIKEN', [[A[0], A[1], 0], [B[0], B[1], Math.tan(phi / 4)], [Cp[0], Cp[1], 0]], true);
+  }
+  w.circle('CONDUCTOR_BINDER_SEMICON', 0, 0, 21.0).circle('SEMICON_INNER', 0, 0, 23.0).circle('INSULATION_XLPE', 0, 0, 40.0)
+   .circle('SEMICON_OUTER', 0, 0, 41.5).circle('WB_TAPE_SEMICON', 0, 0, 42.5);
+  const waves = 30, n = waves * 16, inner = [], outer = [];
+  for (let k = 0; k < n; k++){
+    const a = k / n * TAU, m = 45.2 + 1.4 * Math.sin(waves * a);
+    inner.push([(m - 1.1) * Math.cos(a), (m - 1.1) * Math.sin(a)]);
+    outer.push([(m + 1.1) * Math.cos(a), (m + 1.1) * Math.sin(a)]);
+  }
+  w.lwpoly('GAP_AIR', inner, true).lwpoly('SHEATH_AL_CORRUGATED', outer, true);
+  w.circle('JACKET_PE', 0, 0, 52.7).circle('GRAPHITE_COATING', 0, 0, 52.9);
+  w.text('TITLE', -45, -62, 4, '154kV XLPE 1C 1200SQ');
+  return w.done();
+}
+const SAMPLES = [
+  {id: 'cncv', label: '22.9kV CNCV-W 1C 325㎟', sub: '예제 · 배전용 동심중성선 케이블', make: sampleCNCV},
+  {id: 'tfr', label: '0.6/1kV TFR-CV 3C 25㎟', sub: '예제 · 3심 저압 케이블 (한글 레이어)', make: sampleTFR},
+  {id: 'hv', label: '154kV XLPE 1C 1200㎟', sub: '예제 · 밀리켄 도체 · Al 주름 시스', make: sampleHV}
+];
+
+/* =====================================================================
+   10. 이벤트 연결 · 시작
+   ===================================================================== */
+const GUIDE = [
+  ['도체', 'conductor, cu, al, 도체, 소선, milliken'], ['반도전층', 'semicon + inner / outer, 반도전 + 내부 / 외부'],
+  ['절연체', 'xlpe, epr, insul, 절연'], ['수밀층', 'wb, swell, 수밀, 차수 (+ tape / 테이프)'],
+  ['중성선 · 차폐', 'neutral, 중성선, screen, 차폐, cu tape'], ['개재물 · 테이프', 'filler, 개재, binder, 바인더'],
+  ['외장 · 금속시스', 'armour, 강선, 강대, al sheath, corrugated, 연피'], ['시스', 'sheath, jacket, 시스 + pvc / pe / lszh'],
+  ['공극', 'gap, void, air, 공극'], ['색상', '갈색, 흑색, 회색, 청색, 적색']
+];
+async function boot(){
+  window.__cableReady = true;
+  const sel = $('#sample');
+  sel.innerHTML = '<option value="" disabled>예제 케이블</option>' + SAMPLES.map(s => `<option value="${s.id}">${esc(s.label)}</option>`).join('');
+  sel.onchange = () => { const s = SAMPLES.find(x => x.id === sel.value); if (s) loadWork(s.make(), s.label, s.sub, s.id); };
+  document.querySelectorAll('#viewseg [data-view]').forEach(b => b.onclick = () => { if (view !== b.dataset.view) setView(b.dataset.view); });
+  $('#lblBtn').onclick = () => { labelsOn = !labelsOn; $('#lblBtn').setAttribute('aria-pressed', String(labelsOn)); };
+  $('#cf-spec').onchange = renderConfirm;
+  $('#cf-name').oninput = renderConfirm;
+  $('#cf-rev').oninput = renderConfirm;
+  $('#cf-accept').onclick = () => { if (!model) return; model.groups.forEach(g => { if (g.source === 'guess') g.source = 'user'; }); refresh(); };
+  $('#cf-go').onclick = publishReport;
+  $('#cost-close').onclick = closeCost;
+  $('#cost').onclick = e => { if (e.target === $('#cost')) closeCost(); };
+  $('#kwtable').innerHTML = GUIDE.map(([k, v]) => `<tr><td>${k}</td><td>${v.split(', ').map(x => `<code>${esc(x)}</code>`).join('')}</td></tr>`).join('');
+
+  const fileIn = $('#file');
+  $('#openBtn').onclick = () => fileIn.click();
+  const drop = $('#drop');
+  drop.onclick = () => fileIn.click();
+  drop.onkeydown = e => { if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); fileIn.click(); } };
+  fileIn.onchange = () => { loadFile(fileIn.files[0]); fileIn.value = ''; };
+  const hasFiles = e => [...((e.dataTransfer && e.dataTransfer.types) || [])].includes('Files');
+  let depth = 0;
+  window.addEventListener('dragenter', e => { if (!hasFiles(e)) return; e.preventDefault(); depth++; $('#dropover').hidden = false; drop.classList.add('over'); });
+  window.addEventListener('dragover', e => { if (hasFiles(e)) e.preventDefault(); });
+  window.addEventListener('dragleave', e => { if (!hasFiles(e)) return; depth = Math.max(0, depth - 1); if (!depth){ $('#dropover').hidden = true; drop.classList.remove('over'); } });
+  window.addEventListener('drop', e => { if (!hasFiles(e)) return; e.preventDefault(); depth = 0; $('#dropover').hidden = true; drop.classList.remove('over'); loadFile(e.dataTransfer.files[0]); });
+
+  document.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => setMode(b.dataset.mode));
+  document.querySelectorAll('[data-color]').forEach(b => b.onclick = () => setColor(b.dataset.color));
+  $('#tab-comp').onclick = () => setTab('comp');
+  $('#tab-iec').onclick = () => setTab('iec');
+  $('#verdict').onclick = () => {
+    setTab('iec'); setColor('check');
+    $('#tabcard').scrollIntoView({block: 'start', behavior: reduceMotion ? 'auto' : 'smooth'});
+  };
+  $('#twist').innerHTML = TWIST_OPTS;
+  $('#twist').value = state.twist;
+  $('#twist').onchange = e => setTwist(e.target.value);
+  $('#spin').onclick = () => setSpin(!controls.autoRotate);
+  $('#reset').onclick = () => goTo(viewFor(state.mode, false));
+  azi.addEventListener('input', () => { tween = null; if (controls.autoRotate) setSpin(false); setAzimuth(+azi.value); });
+  $('#unit').onchange = e => { if (!model) return; model.unit = parseFloat(e.target.value); renderSummary(); runReview(); };
+  window.addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return;
+    if (!$('#cost').hidden) closeCost(); else if (state.sel) select(null);
+  });
+
+  resize();
+  syncTheme();
+  setSpin(controls.autoRotate);
+  frame();
+  reportData = await loadReportData();
+  $('#loading').remove();
+  setView('report');
+  goTo(viewFor('strip', false), true);
+  detectAccess();
+}
+boot();
+</script>
+
+</body></html>
