@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>자동 검사</title>
+<style>
+  :root{ --ground:#0E1013; --surface:#15181C; --line:#262A30; --ink:#F2F3F5; --dim:#8A9099; --ok:#5FCB9A; --danger:#FF6B61; }
+  body{ margin:0; background:var(--ground); color:var(--ink); font:14px/1.5 "Segoe UI","Malgun Gothic",sans-serif; }
+  main{ max-width:880px; margin:0 auto; padding:24px 16px 48px; }
+  h1{ font-size:18px; font-weight:500; margin:0 0 4px; }
+  #sum{ color:var(--dim); margin:0 0 20px; }
+  #sum b{ font-weight:600; } .ok{ color:var(--ok); } .bad{ color:var(--danger); }
+  table{ width:100%; border-collapse:collapse; }
+  td{ padding:8px 10px; border-top:1px solid var(--line); vertical-align:top; }
+  td:first-child{ width:52px; font-weight:600; }
+  ul{ margin:6px 0 0; padding-left:18px; color:var(--dim); font-size:13px; word-break:break-all; }
+  #out{ display:none; }
+  iframe{ position:fixed; left:-10000px; top:0; width:1200px; height:800px; border:0; }
+</style>
+</head>
+<body>
+<main>
+  <h1>케이블 뷰어 자동 검사</h1>
+  <p id="sum">실행 중…</p>
+  <table><tbody id="rows"></tbody></table>
+  <pre id="out"></pre>
+</main>
+<iframe id="app" src="/?test" title="뷰어"></iframe>
+<script>
+// 예제 도면 · 보고 데이터로 판정 결과를 뽑아 tests/expected.json(기준 결과)과 비교한다.
+// ?update 로 열면 비교 대신 현재 결과를 #out 에 출력 (기준 결과 갱신용).
+const UPDATE = new URLSearchParams(location.search).has('update');
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+async function api(){
+  const t0 = Date.now();
+  while (Date.now() - t0 < 60000){
+    const w = $('#app').contentWindow;
+    if (w && w.__cableTest) return w.__cableTest;
+    await new Promise(r => setTimeout(r, 200));
+  }
+  throw new Error('뷰어를 60초 안에 불러오지 못함 (three.js · 네트워크 확인)');
+}
+
+// 판정 결과를 비교하기 쉬운 형태로 요약
+function digest(m, checks){
+  const count = {};
+  for (const c of checks) count[c.status] = (count[c.status] || 0) + 1;
+  return {
+    unit: m.unit, levels: m.nLevels,
+    groups: m.groups.map(g => [g.comp, g.mat, g.color ? g.color.name : ''].filter(Boolean).join(' / ')),
+    iec: {cls: m.iec.cls, size: m.iec.size, cond: m.iec.cond},
+    count,
+    checks: checks.map(c => `${c.status} | ${c.sec} | ${c.title} | ${(c.val || []).map(v => v.join(' ')).join(', ')}` + (c.verify ? ` | ${c.verify}` : ''))
+  };
+}
+
+function diff(a, b, path = '', out = []){
+  if (out.length >= 12) return out;
+  if (Array.isArray(a) && Array.isArray(b)){
+    for (let i = 0; i < Math.max(a.length, b.length); i++){
+      if (i >= b.length) out.push(`${path}[${i}] 없어짐: ${JSON.stringify(a[i])}`);
+      else if (i >= a.length) out.push(`${path}[${i}] 새로 생김: ${JSON.stringify(b[i])}`);
+      else diff(a[i], b[i], `${path}[${i}]`, out);
+    }
+  } else if (a && b && typeof a === 'object' && typeof b === 'object'){
+    for (const k of new Set([...Object.keys(a), ...Object.keys(b)])) diff(a[k], b[k], path ? `${path}.${k}` : k, out);
+  } else if (JSON.stringify(a) !== JSON.stringify(b)) out.push(`${path}: 기준 ${JSON.stringify(a)} → 현재 ${JSON.stringify(b)}`);
+  return out;
+}
+
+function sampleModel(T, id){
+  const s = T.SAMPLES.find(x => x.id === id);
+  const m = T.parseModel(s.make(), s.label, s.sub);
+  if (m.error) throw new Error(m.error);
+  m.sampleId = id;
+  return m;
+}
+
+async function run(){
+  const T = await api();
+  const expected = UPDATE ? null : await fetch('expected.json', {cache: 'no-store'}).then(r => { if (!r.ok) throw new Error('tests/expected.json 없음 — 기준 결과부터 만드세요'); return r.json(); });
+  const current = {}, results = [];
+  const test = (name, fn) => {
+    try { const errs = fn() || []; results.push({name, ok: !errs.length, errs}); }
+    catch (e){ results.push({name, ok: false, errs: [e.message]}); }
+  };
+  const golden = key => {
+    const want = expected && expected[key], got = current[key];
+    if (UPDATE) return [];
+    if (!want) return ['기준 결과에 없음 — ?update 로 갱신 필요'];
+    return diff(want, got);
+  };
+
+  test('규격 기준값 파일', () => {
+    if (!T.stdOk) return ['iec-tables.json 을 불러오지 못함'];
+    const s = T.stdStats();
+    current.std = s;
+    return golden('std');
+  });
+
+  for (const s of T.SAMPLES) test(`예제 판정 · ${s.label}`, () => {
+    const m = sampleModel(T, s.id);
+    current['sample:' + s.id] = digest(m, T.judge(m));
+    return golden('sample:' + s.id);
+  });
+
+  test('보고 저장 → 다시 불러오기 (결과 동일)', () => {
+    const errs = [];
+    for (const s of T.SAMPLES){
+      const m = sampleModel(T, s.id);
+      const a = digest(m, T.judge(m));
+      const d = JSON.parse(JSON.stringify(T.snapshot(m, {designer: '검사'})));
+      const m2 = T.modelFromReport(d);
+      if (!m2){ errs.push(`${s.id}: 불러오기 실패`); continue; }
+      diff(a, digest(m2, T.judge(m2)), s.id, errs);
+      // 도면을 통째로 저장한 경우 (사용자 DXF)
+      const d2 = {...d, sample: null, dxf: s.make()};
+      const m3 = T.modelFromReport(d2);
+      if (!m3){ errs.push(`${s.id}: DXF 보고 불러오기 실패`); continue; }
+      diff(a, digest(m3, T.judge(m3)), s.id + '(dxf)', errs);
+    }
+    return errs;
+  });
+
+  test('게시된 report.json 불러오기', () => {
+    return fetch('../report.json', {cache: 'no-store'}).then(r => r.json()).then(d => {
+      const m = T.modelFromReport(d);
+      return m ? [] : ['report.json 으로 모델을 만들지 못함'];
+    });
+  });
+
+  test('도면 단위 인식 (inch 도면 → 25.4)', () => {
+    const txt = T.SAMPLES[1].make().replace('$INSUNITS\n70\n4', '$INSUNITS\n70\n1');
+    const m = T.parseModel(txt, 'inch', '');
+    if (m.error) return [m.error];
+    return m.unit === 25.4 ? [] : [`단위 ${m.unit} (기대 25.4)`];
+  });
+
+  test('절연 두께 부족 도면 → 부적합 표시', () => {
+    // 0.6/1 kV 3심 25 mm² 인데 절연 0.4 mm
+    const w = T.dxfWriter();
+    [90, 210, 330].forEach(deg => {
+      const x = 4.2 * Math.cos(deg * Math.PI / 180), y = 4.2 * Math.sin(deg * Math.PI / 180);
+      w.circle('도체', x, y, 3.0).circle('절연체_XLPE', x, y, 3.4);
+    });
+    w.circle('개재물_PP', 0, 0, 8.0).circle('시스_PVC', 0, 0, 9.9).text('TITLE', -12, -15, 1.4, '0.6/1kV 3C 25SQ');
+    const m = T.parseModel(w.done(), 'thin', '');
+    if (m.error) return [m.error];
+    const C = T.judge(m), bad = C.filter(c => c.status === 'fail' && /절연/.test(c.title));
+    return bad.length ? [] : ['절연 관련 부적합 항목이 나오지 않음: ' + C.filter(c => /절연/.test(c.title)).map(c => `${c.title}=${c.status}`).join(', ')];
+  });
+
+  test('잘못된 파일 → 오류 안내', () => {
+    const m = T.parseModel('이건 DXF가 아님', 'bad', '');
+    return m.error ? [] : ['오류 없이 통과됨'];
+  });
+
+  // 비동기 검사 결과 정리
+  for (const r of results) if (r.errs && typeof r.errs.then === 'function'){
+    try { const e = await r.errs; r.errs = e; r.ok = !e.length; } catch (e){ r.errs = [e.message]; r.ok = false; }
+  }
+  return {results, current};
+}
+
+run().then(({results, current}) => {
+  const pass = results.filter(r => r.ok).length, total = results.length, allOk = pass === total;
+  $('#rows').innerHTML = results.map(r => `<tr><td class="${r.ok ? 'ok' : 'bad'}">${r.ok ? '통과' : '실패'}</td><td>${esc(r.name)}${r.errs.length ? '<ul>' + r.errs.map(e => `<li>${esc(e)}</li>`).join('') + '</ul>' : ''}</td></tr>`).join('');
+  if (UPDATE){
+    $('#sum').innerHTML = '기준 결과 출력 완료 (아래 내용을 tests/expected.json 으로 저장)';
+    $('#out').style.display = 'block';
+    $('#out').textContent = JSON.stringify(current, null, 2);
+  } else {
+    $('#sum').innerHTML = `<b class="${allOk ? 'ok' : 'bad'}">${allOk ? '모두 통과' : '실패 ' + (total - pass) + '건'}</b> · ${pass}/${total}`;
+    $('#out').textContent = JSON.stringify({ok: allOk, pass, total, results});
+  }
+  document.title = (allOk ? 'PASS' : 'FAIL') + ` ${pass}/${total}`;
+}).catch(e => {
+  $('#sum').innerHTML = `<b class="bad">실행 실패</b> · ${esc(e.message)}`;
+  $('#out').textContent = JSON.stringify({ok: false, error: e.message});
+  document.title = 'ERROR';
+});
+</script>
+</body>
+</html>

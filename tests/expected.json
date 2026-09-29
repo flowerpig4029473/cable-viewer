@@ -1,0 +1,143 @@
+{
+  "std": {
+    "verified": 0,
+    "crosschecked": 30,
+    "unverified": 154,
+    "total": 184
+  },
+  "sample:cncv": {
+    "unit": 1,
+    "levels": 10,
+    "groups": [
+      "conductor / CU",
+      "wbcomp / WBCOMP",
+      "cscreen / SEMI",
+      "insulation / XLPE",
+      "iscreen / SEMI",
+      "wbtape / SEMI",
+      "neutral / CU",
+      "wbcomp / WBCOMP",
+      "wbtape / WBTAPE",
+      "sheath / PVC"
+    ],
+    "iec": {
+      "cls": "18/30",
+      "size": 325,
+      "cond": "round"
+    },
+    "count": {
+      "info": 11,
+      "pass": 9,
+      "warn": 3,
+      "fail": 2
+    },
+    "checks": [
+      "info | 적용 범위 | IEC 60502-2 · U0/U 18/30 kV | Um 36 kV, 구분 고압 | crosschecked",
+      "pass | 도체 · IEC 60228 | 도체 재질 | 도면 연동 (구리), 허용 연동 · 알루미늄",
+      "warn | 도체 · IEC 60228 | 공칭 단면적 | 선정 325 mm², 등급 최소 50 mm² | unverified",
+      "info | 도체 · IEC 60228 | 도체 금속 단면적 | 1심 금속 323.9 mm², 공칭 대비 99.7 %",
+      "warn | 도체 · IEC 60228 | 최소 소선 수 | 도면 61 가닥",
+      "warn | 도체 · IEC 60228 | 최대 도체저항 (20 °C) | 계산 0.0545 Ω/km",
+      "pass | 절연체 | 절연 재질 | 도면 가교 폴리에틸렌 (XLPE)",
+      "fail | 절연체 | 절연 공칭 두께 | 도면 평균 6.60 mm, 기준 ≥ 8.0 mm | crosschecked",
+      "fail | 절연체 | 절연 최소 두께 | 도면 최소 6.60 mm, 기준 ≥ 7.10 mm | unverified",
+      "pass | 반도전층 | 도체 차폐 (내부 반도전층) | 도면 두께 0.80 mm",
+      "pass | 반도전층 | 절연 차폐 (외부 반도전층) | 도면 두께 1.00 mm",
+      "pass | 금속 차폐 | 금속 차폐층 | 도면 동심 중성선",
+      "pass | 금속 차폐 | 동심 중성선 선 간격 | 평균 1.58 mm, 최대 1.58 mm, 기준 평균 ≤ 4 · 개별 ≤ 8 mm | unverified",
+      "info | 금속 차폐 | 동심 중성선 단면적 · 저항 | 단면적 80.4 mm², 20 °C 0.229 Ω/km",
+      "pass | 외부 시스 | 시스 재질 | 도면 폴리염화비닐 (PVC)",
+      "pass | 외부 시스 | 시스 공칭 두께 | 도면 평균 3.20 mm, 기준 ≥ 2.6 mm | crosschecked",
+      "pass | 외부 시스 | 시스 최소 두께 | 도면 최소 3.20 mm, 기준 ≥ 1.88 mm | unverified",
+      "info | 시험 · 운전 정보 | 상용주파 내전압 (정기 시험) | 시험 전압 63 kV · 5분 | unverified",
+      "info | 시험 · 운전 정보 | 도체 최고 허용온도 | 상시 90 °C, 단락 250 °C | unverified",
+      "info | 연입률 | 도체 소선 층별 연입률 | 평균 k̄ 1.0237, 길이 증가 2.37 %",
+      "info | 연입률 | 도체 실효 단면적 · 저항 | 실효 316.4 mm², 20 °C 0.0545 Ω/km",
+      "info | 연입률 | 도체 점적률 | 점적률 72.8 %",
+      "info | 연입률 | 도체 중량 (연입률 반영) | 중량 2,947 kg/km",
+      "info | 연입률 | 동심 중성선 연입률 | k 1.0693, 방향 S, 연피치 359 mm, 경사각 20.7°, 선 수 40 가닥",
+      "info | 연입률 | 절연 편심률 | 편심률 0.0 %, 최대 6.60 mm, 최소 6.60 mm"
+    ]
+  },
+  "sample:tfr": {
+    "unit": 1,
+    "levels": 5,
+    "groups": [
+      "conductor / CU",
+      "insulation / XLPE / 갈색",
+      "insulation / XLPE / 회색",
+      "insulation / XLPE / 흑색",
+      "filler / PP",
+      "binder / PET",
+      "sheath / PVC"
+    ],
+    "iec": {
+      "cls": "0.6/1",
+      "size": 25,
+      "cond": "compact"
+    },
+    "count": {
+      "info": 13,
+      "pass": 9,
+      "warn": 1
+    },
+    "checks": [
+      "info | 적용 범위 | IEC 60502-1 · U0/U 0.6/1 kV | Um 1.2 kV, 구분 저압 | crosschecked",
+      "pass | 도체 · IEC 60228 | 도체 재질 | 도면 연동 (구리), 허용 연동 · 알루미늄",
+      "pass | 도체 · IEC 60228 | 공칭 단면적 | 선정 25 mm², 등급 최소 1.5 mm² | unverified",
+      "info | 도체 · IEC 60228 | 도체 금속 단면적 | 도면 외곽 28.3 mm², 1심 금속 25.4 mm², 공칭 대비 101.8 %",
+      "warn | 도체 · IEC 60228 | 최소 소선 수 | 도면 소선 미표현, 최소 6 가닥 | unverified",
+      "pass | 도체 · IEC 60228 | 최대 도체저항 (20 °C) | 계산 0.692 Ω/km, 최대 0.727 Ω/km | unverified",
+      "pass | 절연체 | 절연 재질 · 갈색·회색·흑색 | 도면 가교 폴리에틸렌 (XLPE)",
+      "pass | 절연체 | 절연 공칭 두께 · 갈색·회색·흑색 | 도면 평균 0.90 mm, 기준 ≥ 0.9 mm | crosschecked",
+      "pass | 절연체 | 절연 최소 두께 · 갈색·회색·흑색 | 도면 최소 0.90 mm, 기준 ≥ 0.71 mm | unverified",
+      "info | 코어 집합 · 내부 피복 · 외장 | 3심 코어 집합 | 개재물 있음, 바인더 있음, 내부 피복 없음",
+      "pass | 외부 시스 | 시스 재질 | 도면 폴리염화비닐 (PVC)",
+      "pass | 외부 시스 | 시스 공칭 두께 | 도면 평균 1.80 mm, 기준 ≥ 1.8 mm | crosschecked",
+      "pass | 외부 시스 | 시스 최소 두께 | 도면 최소 1.80 mm, 기준 ≥ 1.43 mm | unverified",
+      "info | 시험 · 운전 정보 | 상용주파 내전압 (정기 시험) | 시험 전압 3.5 kV · 5분 | unverified",
+      "info | 시험 · 운전 정보 | 도체 최고 허용온도 | 상시 90 °C, 단락 250 °C | unverified",
+      "info | 연입률 | 도체 연입률 | k 1.0200",
+      "info | 연입률 | 코어 연합 연입률 | 피치원 9.1 mm, 연피치 507 mm, k 1.0016",
+      "info | 연입률 | 도체 실효 단면적 · 저항 | 실효 24.9 mm², 20 °C 0.692 Ω/km",
+      "info | 연입률 | 도체 점적률 (가정) | 점적률 90.0 %",
+      "info | 연입률 | 도체 중량 (연입률 반영) | 중량 693 kg/km",
+      "info | 연입률 | 절연 편심률 · 갈색 | 편심률 0.0 %, 최대 0.90 mm, 최소 0.90 mm",
+      "info | 연입률 | 절연 편심률 · 회색 | 편심률 0.0 %, 최대 0.90 mm, 최소 0.90 mm",
+      "info | 연입률 | 절연 편심률 · 흑색 | 편심률 0.0 %, 최대 0.90 mm, 최소 0.90 mm"
+    ]
+  },
+  "sample:hv": {
+    "unit": 1,
+    "levels": 10,
+    "groups": [
+      "conductor / CU",
+      "binder / SEMI",
+      "cscreen / SEMI",
+      "insulation / XLPE",
+      "iscreen / SEMI",
+      "wbtape / SEMI",
+      "void / VOID",
+      "metalsheath / AL",
+      "sheath / PE",
+      "graphite / SEMI"
+    ],
+    "iec": {
+      "cls": "out",
+      "size": 1200,
+      "cond": "segment"
+    },
+    "count": {
+      "na": 1,
+      "info": 5
+    },
+    "checks": [
+      "na | 적용 범위 | IEC 60502 적용 범위 | 판정 범위 밖",
+      "info | 연입률 | 도체 연입률 | k 1.0200",
+      "info | 연입률 | 도체 실효 단면적 · 저항 | 실효 1,133.6 mm², 20 °C 0.0152 Ω/km",
+      "info | 연입률 | 도체 점적률 (가정) | 점적률 90.0 %",
+      "info | 연입률 | 도체 중량 (연입률 반영) | 중량 10,485 kg/km",
+      "info | 연입률 | 절연 편심률 | 편심률 0.0 %, 최대 17.00 mm, 최소 17.00 mm"
+    ]
+  }
+}

@@ -2790,6 +2790,11 @@ async function boot(){
   const [stdOk, rd] = await Promise.all([loadStd(), loadReportData()]);
   reportData = rd;
   if (!stdOk) console.warn('iec-tables.json 을 불러오지 못해 규격 판정을 건너뜁니다');
+  // 자동 검사용 (tests/test.html 이 ?test 로 열 때만)
+  if (new URLSearchParams(location.search).has('test')) window.__cableTest = {
+    SAMPLES, dxfWriter, parseModel, snapshot, modelFromReport, stdStats, stdOk,
+    judge(m){ const prev = model; model = m; try { evaluate(); } finally { model = prev; } return m.checks; }
+  };
   $('#loading').remove();
   setView('report');
   goTo(viewFor('strip', false), true);
