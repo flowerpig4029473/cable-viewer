@@ -1,4 +1,4 @@
-param([int]$Port = 8765, [switch]$NoBrowser)
+﻿param([int]$Port = 8765, [switch]$NoBrowser)
 # Local preview server for the cable viewer.
 # "/" serves index.html wrapped in the same page skeleton the Claude artifact host adds;
 # other paths (report.json, later module files) are served from this folder.
@@ -25,6 +25,15 @@ while ($listener.IsListening) {
   $ctx = $listener.GetContext()
   try {
     $path = [Uri]::UnescapeDataString($ctx.Request.Url.AbsolutePath.TrimStart('/'))
+    if ($ctx.Request.HttpMethod -eq 'PUT') {
+      # 뷰어의 "확인 완료 · 게시" → report.json 저장 (이 파일만 허용)
+      $reader = New-Object System.IO.StreamReader($ctx.Request.InputStream, [System.Text.Encoding]::UTF8)
+      $text = $reader.ReadToEnd()
+      if ($path -ne 'report.json' -or -not $text.TrimStart().StartsWith('{')) { $ctx.Response.StatusCode = 400; $ctx.Response.Close(); continue }
+      [System.IO.File]::WriteAllText((Join-Path $dir 'report.json'), $text, (New-Object System.Text.UTF8Encoding $false))
+      Write-Host "report.json saved"
+      $ctx.Response.StatusCode = 204; $ctx.Response.Close(); continue
+    }
     if ($path -eq '' -or $path -eq 'index.html') {
       $body = [System.IO.File]::ReadAllText((Join-Path $dir 'index.html'), [System.Text.Encoding]::UTF8)
       $html = '<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style></head><body>' + $body + '</body></html>'

@@ -12,6 +12,8 @@
 | `iec-tables.json` | 규격 기준값 (IEC 60502 · 60228). 값마다 출처와 확인 상태 |
 | `규격값_확인표.csv` | 기준값 확인표. 엑셀로 열어 규격 원문과 대조 |
 | `report.json` | 게시된 보고 데이터 (설계자가 게시하면 바뀜) |
+| `qr.html` · `QR_케이블뷰어.png` | 공개 뷰어 QR 코드 |
+| `tools/GitHub_올리기.bat` | 게시한 보고 포함, 바뀐 내용을 GitHub에 올림 |
 | `미리보기.bat` | 더블클릭하면 이 PC에서 뷰어가 열림 |
 | `serve.ps1` | 미리보기용 로컬 서버 |
 | `tools/규격값_확인표_만들기.bat` | `iec-tables.json`으로 확인표를 다시 만듦 |
@@ -19,6 +21,19 @@
 | `tools/기준결과_갱신.bat` | 지금 판정 결과를 기준 결과로 저장 |
 | `tests/test.html` | 자동 검사 페이지 |
 | `tests/expected.json` | 기준 결과 (예제 3종의 판정 내용) |
+
+## QR 공개 뷰어
+
+- 주소: https://flowerpig4029473.github.io/cable-viewer/ (로그인 없이 누구나, 보고 화면만)
+- QR: `QR_케이블뷰어.png` (인쇄용), `qr.html` (화면에 띄우기 · 인쇄 · 이미지 저장)
+- QR은 주소만 담고 있어 보고를 새로 게시해도 다시 만들 필요 없음
+
+보고 갱신 순서:
+
+1. `미리보기.bat` → 설계 화면에서 도면 확인 → `확인 완료 · 게시` (report.json 저장)
+2. `tools/GitHub_올리기.bat` → 1~2분 뒤 QR 화면에 반영
+
+GitHub에 올릴 때마다 `.github/workflows/pages.yml`이 공개 뷰어를 새로 만든다.
 
 ## 규격 기준값 확인
 

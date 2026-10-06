@@ -1,0 +1,49 @@
+# main에 올릴 때마다 공개 뷰어(GitHub Pages)를 새로 만든다.
+# 주소: https://flowerpig4029473.github.io/cable-viewer/  (qr.html 의 QR이 가리키는 곳)
+name: 공개 뷰어 배포
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: 페이지 만들기
+        run: |
+          mkdir _site
+          # index.html 은 본문만 있으므로 머리말을 붙이고, 공개 사이트 표시(보고 화면만)를 켠다
+          {
+            printf '%s' '<!doctype html><html lang="ko"><head><meta charset="utf-8">'
+            printf '%s' '<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">'
+            printf '%s' '<meta name="theme-color" content="#0E1013"><meta name="apple-mobile-web-app-capable" content="yes">'
+            printf '%s' '<title>케이블 단면 3D 뷰어</title>'
+            printf '%s' '<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>'
+            printf '%s' '<script>window.CABLE_PUBLIC=true</script></head><body>'
+            cat index.html
+            printf '%s' '</body></html>'
+          } > _site/index.html
+          cp iec-tables.json report.json qr.html _site/
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+      - id: deployment
+        uses: actions/deploy-pages@v4

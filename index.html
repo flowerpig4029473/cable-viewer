@@ -2366,7 +2366,8 @@ async function loadReportData(){
   } catch (e){ return null; }
 }
 async function detectAccess(){
-  if (!(window.claude && window.claude.use)) canPublish = true;          // 로컬 미리보기
+  if (window.CABLE_PUBLIC) canPublish = false;                            // 공개 사이트 (QR): 보고 화면만
+  else if (!(window.claude && window.claude.use)) canPublish = true;     // 로컬 미리보기
   else {
     const user = await window.claude.use('user');
     canPublish = user ? await user.canEdit() : false;
@@ -2385,7 +2386,14 @@ async function publishReport(){
   cfMsg('게시 중');
   const art = await getArtifact();
   if (!art){
-    if (!window.claude){ reportData = data; reportModel = null; cfMsg('로컬 미리보기: 게시 안 됨 (화면만 반영)', 'ok'); setView('report'); return; }
+    if (!window.claude){
+      // PC 미리보기: report.json 파일로 저장 → GitHub_올리기.bat 으로 공개 사이트(QR)에 반영
+      let saved = false;
+      try { saved = (await fetch('report.json', {method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)})).ok; } catch (e){}
+      reportData = data; reportModel = null;
+      cfMsg(saved ? '저장 완료 · GitHub_올리기 실행 시 QR 화면에 반영' : '미리보기: 저장 안 됨 (화면만 반영)', 'ok');
+      setView('report'); return;
+    }
     cfMsg('이 화면에서는 게시할 수 없음', 'err'); renderConfirm(); return;
   }
   try {
