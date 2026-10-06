@@ -2919,6 +2919,7 @@ async function boot(){
   sel.onchange = () => { const s = SAMPLES.find(x => x.id === sel.value); if (s) loadWork(s.make(), s.label, s.sub, s.id); };
   document.querySelectorAll('#viewseg [data-view]').forEach(b => b.onclick = () => { if (view !== b.dataset.view) setView(b.dataset.view); });
   $('#lblBtn').onclick = () => { labelsOn = !labelsOn; $('#lblBtn').setAttribute('aria-pressed', String(labelsOn)); };
+  if (PUBLIC){ labelsOn = false; $('#lblBtn').hidden = true; }   // 휴대폰(공개) 화면: 3D 위 번호 · 이름 라벨 없음
   $('#cf-spec').onchange = renderConfirm;
   $('#cf-name').oninput = renderConfirm;
   $('#cf-rev').oninput = renderConfirm;

@@ -30,7 +30,7 @@
 3. QR을 누르면 크게 보기 · 링크 복사 · QR 이미지 저장
 
 - 휴대폰 주소: `https://flowerpig4029473.github.io/cable-viewer/?c=<id>` (로그인 없이, 그 케이블 하나만)
-- 처음엔 케이블과 이름만, 화면을 누르면 라벨 · 판정 · 구성 상세가 나온다
+- 처음엔 케이블과 이름만, 화면을 누르면 판정 · 구성 상세가 나온다 (3D 위 번호 · 이름 라벨은 표시 안 함)
 - 같은 케이블을 고쳐 다시 게시하면 QR은 그대로, 내용만 바뀐다. 새 도면은 새 QR
 - 게시 → GitHub 업로드는 `tools/publish-push.ps1`이 자동 처리 (기록: `%TEMP%\cable-viewer-publish.log`).
   `반영 안 됨`이 뜨면 `tools/GitHub_올리기.bat` 실행
