@@ -11,9 +11,10 @@
 | `index.html` | 뷰어 본체 (게시 원본) |
 | `iec-tables.json` | 규격 기준값 (IEC 60502 · 60228). 값마다 출처와 확인 상태 |
 | `규격값_확인표.csv` | 기준값 확인표. 엑셀로 열어 규격 원문과 대조 |
-| `report.json` | 게시된 보고 데이터 (설계자가 게시하면 바뀜) |
-| `qr.html` · `QR_케이블뷰어.png` | 공개 뷰어 QR 코드 |
-| `tools/GitHub_올리기.bat` | 게시한 보고 포함, 바뀐 내용을 GitHub에 올림 |
+| `report.json` | 최근 게시한 보고 (PC 보고 화면) |
+| `cables/<id>.json` | 게시한 케이블마다 하나. QR 주소 `?c=<id>`가 여는 파일 |
+| `tools/publish-push.ps1` | 게시하면 미리보기 서버가 실행해 GitHub에 올림 |
+| `tools/GitHub_올리기.bat` | 자동으로 안 올라갔을 때 직접 올림 |
 | `미리보기.bat` | 더블클릭하면 이 PC에서 뷰어가 열림 |
 | `serve.ps1` | 미리보기용 로컬 서버 |
 | `tools/규격값_확인표_만들기.bat` | `iec-tables.json`으로 확인표를 다시 만듦 |
@@ -22,16 +23,18 @@
 | `tests/test.html` | 자동 검사 페이지 |
 | `tests/expected.json` | 기준 결과 (예제 3종의 판정 내용) |
 
-## QR 공개 뷰어
+## 케이블별 QR
 
-- 주소: https://flowerpig4029473.github.io/cable-viewer/ (로그인 없이 누구나, 보고 화면만)
-- QR: `QR_케이블뷰어.png` (인쇄용), `qr.html` (화면에 띄우기 · 인쇄 · 이미지 저장)
-- QR은 주소만 담고 있어 보고를 새로 게시해도 다시 만들 필요 없음
+1. `미리보기.bat` → 설계 화면에서 도면 확인 → `확인 완료 · 게시`
+2. 보고 화면 우상단에 그 케이블의 QR이 나온다 (`반영 중` → 1~2분 뒤 사라지면 휴대폰에서 열림)
+3. QR을 누르면 크게 보기 · 링크 복사 · QR 이미지 저장
 
-보고 갱신 순서:
-
-1. `미리보기.bat` → 설계 화면에서 도면 확인 → `확인 완료 · 게시` (report.json 저장)
-2. `tools/GitHub_올리기.bat` → 1~2분 뒤 QR 화면에 반영
+- 휴대폰 주소: `https://flowerpig4029473.github.io/cable-viewer/?c=<id>` (로그인 없이, 그 케이블 하나만)
+- 처음엔 케이블과 이름만, 화면을 누르면 라벨 · 판정 · 구성 상세가 나온다
+- 같은 케이블을 고쳐 다시 게시하면 QR은 그대로, 내용만 바뀐다. 새 도면은 새 QR
+- 게시 → GitHub 업로드는 `tools/publish-push.ps1`이 자동 처리 (기록: `%TEMP%\cable-viewer-publish.log`).
+  `반영 안 됨`이 뜨면 `tools/GitHub_올리기.bat` 실행
+- Claude 게시 페이지(claude.ai)에서 게시한 보고에는 QR이 없다 (GitHub에 올릴 수 없음)
 
 GitHub에 올릴 때마다 `.github/workflows/pages.yml`이 공개 뷰어를 새로 만든다.
 

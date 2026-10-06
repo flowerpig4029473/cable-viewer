@@ -337,8 +337,40 @@ button.ck.fail:hover{background:var(--danger-soft);border-color:var(--danger)}
 .cost-bar{display:inline-block;height:3px;border-radius:2px;background:var(--ink-2);vertical-align:middle;margin-right:6px}
 .modal-note{margin:12px 0 0;font-size:11.5px;color:var(--ink-3)}
 
+/* ---------- QR (보고 화면 우상단, 케이블마다 하나) ---------- */
+.qrbox{position:absolute;top:72px;right:var(--gut);z-index:4;display:grid;justify-items:center;gap:7px;padding:10px 10px 8px;border-radius:16px;border:1px solid var(--line);background:var(--glass);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);cursor:pointer;color:var(--ink-2);font-size:11.5px;line-height:1.2}
+.qrbox:hover{border-color:var(--line-2);color:var(--ink)}
+.qr-img{width:92px;height:92px;border-radius:8px;background:#fff;padding:5px}
+.qr-img svg,.qr-big svg{display:block;width:100%;height:100%}
+.qrbox small{display:block;font-size:10.5px;color:var(--warn)}
+#info:not([hidden]) + .qrbox{display:none}
+.app[data-qr] .hint{display:none}
+.qr-box{width:min(380px,100%);text-align:center}
+.qr-box .modal-head{text-align:left}
+.qr-big{width:min(260px,100%);aspect-ratio:1;margin:4px auto 0;background:#fff;border-radius:14px;padding:12px}
+.qr-name{margin:14px 0 2px;font-family:var(--display);font-size:16px;font-weight:400}
+.qr-state{margin:0;font-size:12px;color:var(--ink-3);min-height:18px}
+.qr-state.wait{color:var(--warn)} .qr-state.ok{color:var(--ok)}
+.qr-url{display:block;margin:6px 0 16px;font-family:var(--mono);font-size:11.5px;color:var(--ink-3);word-break:break-all;text-decoration:none}
+.qr-url:hover{color:var(--ink)}
+.qr-act{display:flex;gap:8px;justify-content:center}
+
+/* ---------- 휴대폰(QR) 첫 화면: 케이블과 이름만, 누르면 상세 ---------- */
+.lite-name,.lite-more{display:none}
+.app[data-empty] .stagewrap{display:none}
+.app[data-lite] .topbar,.app[data-lite] .side,.app[data-lite] #info,.app[data-lite] .viewbar,.app[data-lite] .labels,
+.app[data-lite] .legend,.app[data-lite] .hint,.app[data-lite] .qrbox{display:none!important}
+.app[data-lite] .lite-name{display:block;position:absolute;left:0;right:0;top:calc(env(safe-area-inset-top,0px) + 9vh);margin:0;padding:0 24px;text-align:center;font-family:var(--display);font-size:clamp(22px,5.6vw,34px);font-weight:300;letter-spacing:.01em;line-height:1.3;text-wrap:balance;pointer-events:none;z-index:2}
+.app[data-lite] .lite-more{display:block;position:absolute;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 7vh);transform:translateX(-50%);z-index:2;height:40px;padding:0 20px;border-radius:999px;border:1px solid var(--line-2);background:var(--glass);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);color:var(--ink-2);font-size:13px;cursor:pointer;white-space:nowrap}
+.app[data-lite] .lite-more:hover{color:var(--ink);border-color:var(--ink-3)}
+
 @media (max-width:860px){
   :root{--gut:16px}
+  .app[data-lite]{padding:0}
+  .app[data-lite] .stagewrap{margin:0}
+  .app[data-lite] .stage{height:100vh;height:100svh}
+  .qrbox{top:14px;padding:8px 8px 6px;font-size:11px}
+  .qr-img{width:72px;height:72px;padding:4px}
   html,body{height:auto}
   .app{display:flex;flex-direction:column;height:auto;overflow:visible;gap:16px;padding:0 var(--gut) var(--gut)}
   .topbar{position:static;padding:14px 0 0;pointer-events:auto}
@@ -504,8 +536,13 @@ button.ck.fail:hover{background:var(--danger-soft);border-color:var(--danger)}
       </div>
       <div class="tip" id="tip" hidden></div>
       <div class="drop-over" id="dropover" hidden>DXF 파일을 놓으세요</div>
+      <!-- 휴대폰(QR)으로 연 첫 화면: 케이블과 이름만 -->
+      <h2 class="lite-name" id="lite-name"></h2>
+      <button type="button" class="lite-more" id="lite-more">눌러서 상세 보기</button>
     </div>
     <aside class="info" id="info" hidden aria-live="polite"></aside>
+    <!-- 보고 화면: 이 케이블의 휴대폰용 QR -->
+    <button type="button" class="qrbox report-only" id="qrbox" hidden aria-label="휴대폰으로 보기 QR 크게 보기"></button>
   </main>
 </div>
 
@@ -525,6 +562,24 @@ button.ck.fail:hover{background:var(--danger-soft);border-color:var(--danger)}
     <p class="modal-note">연입률 반영 · 테이프 겹침 · 공정 손실 미반영. 단가는 이 브라우저에만 저장.</p>
   </div>
 </div>
+
+<div class="modal" id="qrmodal" hidden role="dialog" aria-modal="true" aria-labelledby="qr-t">
+  <div class="modal-box qr-box">
+    <div class="modal-head">
+      <h2 id="qr-t">휴대폰으로 보기</h2>
+      <button type="button" class="ibtn" id="qr-close" aria-label="닫기"><svg width="14" height="14" viewBox="0 0 14 14" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M2 2l10 10M12 2 2 12"/></svg></button>
+    </div>
+    <div class="qr-big" id="qr-big"></div>
+    <p class="qr-name" id="qr-name"></p>
+    <p class="qr-state" id="qr-state"></p>
+    <a class="qr-url" id="qr-url" target="_blank" rel="noopener"></a>
+    <div class="qr-act">
+      <button type="button" class="btn sm" id="qr-copy">링크 복사</button>
+      <button type="button" class="btn sm" id="qr-save">QR 이미지 저장</button>
+    </div>
+  </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
 
 <script>
   // three.js 모듈을 불러오지 못한 경우 안내
@@ -1385,8 +1440,9 @@ let tween = null;
 // 좌측 패널 · 정보 카드가 가리는 폭을 뺀, 실제로 보이는 영역의 가로세로비
 function sideCover(){
   if (window.innerWidth <= 860) return {left: 0, right: 0};
-  const side = document.querySelector(view === 'report' ? '#report' : '.side.design-only'), info = $('#info');
-  return {left: side ? side.offsetLeft + side.offsetWidth : 0, right: info && !info.hidden ? stageEl.clientWidth - info.offsetLeft : 0};
+  const side = document.querySelector(view === 'report' ? '#report' : '.side.design-only'), info = $('#info'), qr = $('#qrbox');
+  const rightEl = info && !info.hidden ? info : qr && !qr.hidden && qr.offsetParent ? qr : null;   // 정보 카드 또는 QR
+  return {left: side ? side.offsetLeft + side.offsetWidth : 0, right: rightEl ? stageEl.clientWidth - rightEl.offsetLeft : 0};
 }
 function fitDistance(radius){
   const c = sideCover(), W = Math.max(200, stageEl.clientWidth - c.left - c.right), H = stageEl.clientHeight || 1;
@@ -1449,6 +1505,7 @@ let downAt = null, hoverEv = null, lastHover = 0;
 canvas.addEventListener('pointerdown', e => { downAt = {x: e.clientX, y: e.clientY}; $('#tip').hidden = true; });
 canvas.addEventListener('pointerup', e => {
   if (downAt && e.button === 0 && Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) < 5){
+    if ($('#app').dataset.lite){ exitLite(); downAt = null; return; }   // 휴대폰 첫 화면: 누르면 상세
     const hit = pickAt(e.clientX, e.clientY), g = hit ? hit.userData.g : null;
     if (g && g === state.sel && hit === state.selMesh) select(null); else select(g, hit);
   }
@@ -2248,6 +2305,19 @@ let reportData = null;            // 게시된 보고 (report.json)
 let reportModel = null, workModel = null;
 let canPublish = false, moreOpen = false;
 
+// 공개 사이트(GitHub Pages): 케이블마다 cables/<id>.json, 주소 ?c=<id> 를 QR로 연다
+const PUBLIC_BASE = 'https://flowerpig4029473.github.io/cable-viewer/';
+const PUBLIC = !!window.CABLE_PUBLIC;
+const ID_RE = /^[a-z0-9]{4,16}$/;
+const PUBLIC_ID = PUBLIC ? (new URLSearchParams(location.search).get('c') || '').toLowerCase() : '';
+const publicUrl = id => PUBLIC_BASE + '?c=' + id;
+const cableName = m => (m.title || m.name.replace(/\.dxf$/i, '')).replace(/-/g, '‑');
+function newId(){
+  const a = new Uint8Array(6), abc = '23456789abcdefghijkmnpqrstuvwxyz';   // 헷갈리는 0 · 1 · l · o 제외
+  crypto.getRandomValues(a);
+  return [...a].map(x => abc[x % abc.length]).join('');
+}
+
 // DXF 문자열 → 분석된 모델 (화면에 올리지는 않음)
 function parseModel(text, name, sub){
   let res;
@@ -2297,6 +2367,7 @@ function applyReport(m, d){
     if (g && COMP[o.comp] && MAT[o.mat]){ g.comp = o.comp; g.mat = o.mat; g.source = 'user'; }
   }
   m.meta = d.meta || null;
+  m.publicId = ID_RE.test(d.id || '') ? d.id : null;
 }
 function modelFromReport(d){
   const smp = d.sample && SAMPLES.find(s => s.id === d.sample);
@@ -2310,7 +2381,7 @@ function modelFromReport(d){
 }
 function snapshot(m, meta){
   const S = m.iec;
-  return {v: 1, sample: m.sampleId || null, dxf: m.sampleId ? null : m.text, name: m.name, sub: m.sub, unit: m.unit,
+  return {v: 1, id: m.publicId || null, sample: m.sampleId || null, dxf: m.sampleId ? null : m.text, name: m.name, sub: m.sub, unit: m.unit,
     iec: {cls: S.cls, size: S.size, cond: S.cond, fill: S.fill, kAssumed: S.kAssumed, lay: {cond: S.lay.cond, core: S.lay.core, wire: {...S.lay.wire}}},
     overrides: m.groups.map(g => ({key: g.key, comp: g.comp, mat: g.mat})), meta};
 }
@@ -2358,8 +2429,10 @@ async function getArtifact(){
   return artifactNs;
 }
 async function loadReportData(){
+  const url = !PUBLIC ? 'report.json' : ID_RE.test(PUBLIC_ID) ? `cables/${PUBLIC_ID}.json` : null;
+  if (!url) return null;
   try {
-    const r = await fetch('report.json', {cache: 'no-store'});
+    const r = await fetch(url, {cache: 'no-store'});
     if (!r.ok) return null;
     const d = await r.json();
     return d && d.v ? d : null;
@@ -2381,18 +2454,22 @@ function cfMsg(text, kind){ const el = $('#cf-msg'); el.textContent = text; el.c
 async function publishReport(){
   const m = workModel; if (!m) return;
   const d = new Date(), date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  const data = snapshot(m, {designer: $('#cf-name').value.trim(), rev: $('#cf-rev').value.trim(), date, example: false});
+  const data = snapshot(m, {designer: $('#cf-name').value.trim(), rev: $('#cf-rev').value.trim(), date, at: Date.now(), example: false});
   $('#cf-go').disabled = true;
   cfMsg('게시 중');
   const art = await getArtifact();
   if (!art){
     if (!window.claude){
-      // PC 미리보기: report.json 파일로 저장 → GitHub_올리기.bat 으로 공개 사이트(QR)에 반영
+      // PC 미리보기: cables/<id>.json 으로 저장 → 미리보기 서버가 GitHub에 올림 → QR로 휴대폰에서 열림
+      const id = m.publicId || newId();
       let saved = false;
-      try { saved = (await fetch('report.json', {method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)})).ok; } catch (e){}
+      try { saved = (await fetch(`cables/${id}.json`, {method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({...data, id})})).ok; } catch (e){}
+      if (saved){ m.publicId = id; data.id = id; }
       reportData = data; reportModel = null;
-      cfMsg(saved ? '저장 완료 · GitHub_올리기 실행 시 QR 화면에 반영' : '미리보기: 저장 안 됨 (화면만 반영)', 'ok');
-      setView('report'); return;
+      cfMsg(saved ? '게시 완료 · 휴대폰 반영 1~2분' : '미리보기: 저장 안 됨 (화면만 반영)', 'ok');
+      setView('report');
+      if (saved) watchLive(id, data.meta.at, true);
+      return;
     }
     cfMsg('이 화면에서는 게시할 수 없음', 'err'); renderConfirm(); return;
   }
@@ -2439,8 +2516,15 @@ function checksHTML(C){
 }
 function renderReport(){
   const el = $('#report');
+  renderQR();
   if (view !== 'report') return;
   if (!model || model !== reportModel){
+    if (PUBLIC){
+      el.innerHTML = PUBLIC_ID
+        ? '<section class="card rp-empty"><b>케이블을 찾을 수 없음</b><span>게시 직후라면 1~2분 뒤 다시 열기</span></section>'
+        : '<section class="card rp-empty"><b>케이블 QR 코드로 열어 주세요</b><span>보고 화면의 QR을 휴대폰으로 찍으면 해당 케이블이 열림</span></section>';
+      return;
+    }
     el.innerHTML = `<section class="card rp-empty"><b>게시된 보고 없음</b><span>${canPublish ? '설계 화면에서 도면 확인 후 게시' : '설계자 게시 대기 중'}</span>`
       + (canPublish ? '<button type="button" class="btn primary" id="rp-to-design">설계 화면</button>' : '') + '</section>';
     const b = $('#rp-to-design'); if (b) b.onclick = () => setView('design');
@@ -2483,7 +2567,7 @@ function renderReport(){
     </section>
     <div class="rp-foot">
       <span>${meta.example ? '<span class="ex-tag">예제</span>' : ''}설계 확인 <b>${esc(meta.designer || '—')}</b> · Rev.${esc(meta.rev || '—')} · ${esc(meta.date || '—')}${STD ? ` · 기준값 원문 확인 ${stdStats().verified}/${stdStats().total}` : ''}</span>
-      <button type="button" class="btn sm" id="rp-cost">재료비</button>
+      ${PUBLIC ? '' : '<button type="button" class="btn sm" id="rp-cost">재료비</button>'}
     </div>`;
   el.querySelectorAll('[data-g]').forEach(b => b.onclick = () => {
     const g = m.groups[+b.dataset.g]; if (!g || b.dataset.g === '') return;
@@ -2491,7 +2575,93 @@ function renderReport(){
   });
   el.querySelectorAll('button.ck[data-gids]').forEach(b => b.onclick = () => { const g = m.groups[+b.dataset.gids.split(',')[0]]; if (g) select(g); });
   $('#rp-more').onclick = () => { moreOpen = !moreOpen; renderReport(); };
-  $('#rp-cost').onclick = openCost;
+  if ($('#rp-cost')) $('#rp-cost').onclick = openCost;
+}
+
+/* --- 케이블별 QR (보고 화면 우상단) --- */
+function qrSVG(text){
+  if (!window.qrcode) return '';
+  const q = qrcode(0, 'M'); q.addData(text); q.make();
+  const n = q.getModuleCount(), p = 1, s = n + p * 2; let d = '';
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (q.isDark(r, c)) d += `M${c + p} ${r + p}h1v1h-1z`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${s} ${s}" shape-rendering="crispEdges"><rect width="${s}" height="${s}" fill="#fff"/><path d="${d}" fill="#0E1013"/></svg>`;
+}
+const live = {};            // id → 'wait' 반영 중 | 'ok' 휴대폰에서 열림 | 'fail' 안 올라감 | 'unknown' 확인 불가
+let liveTimer = 0;
+// 공개 사이트에 이번 게시본(meta.at)이 올라왔는지
+async function liveCheck(id, at){
+  try {
+    const r = await fetch(`${PUBLIC_BASE}cables/${id}.json?t=${Date.now()}`, {cache: 'no-store'});
+    if (!r.ok) return false;
+    const j = await r.json();
+    return !at || (j.meta && j.meta.at === at);
+  } catch (e){ return null; }
+}
+function watchLive(id, at, fresh){
+  clearTimeout(liveTimer);
+  const t0 = Date.now();
+  const tick = async () => {
+    const ok = await liveCheck(id, at);
+    if (!reportData || reportData.id !== id) return;
+    live[id] = ok === null ? 'unknown' : ok ? 'ok' : Date.now() - t0 > 6 * 60e3 ? 'fail' : 'wait';
+    renderQR();
+    if (live[id] === 'wait') liveTimer = setTimeout(tick, 10000);
+  };
+  if (fresh){ live[id] = 'wait'; renderQR(); liveTimer = setTimeout(tick, 20000); }
+  else tick();
+}
+function renderQR(){
+  const box = $('#qrbox'), app = $('#app'), id = reportData && reportData.id;
+  const on = !PUBLIC && view === 'report' && !!reportModel && model === reportModel && ID_RE.test(id || '') && !!window.qrcode;
+  box.hidden = !on;
+  if (on) app.dataset.qr = '1'; else delete app.dataset.qr;
+  if (!on){ if (!$('#qrmodal').hidden) closeQR(); return; }
+  const st = live[id];
+  box.innerHTML = `<span class="qr-img">${qrSVG(publicUrl(id))}</span><span>휴대폰으로 보기${st === 'wait' ? '<small>반영 중</small>' : st === 'fail' ? '<small>반영 안 됨</small>' : ''}</span>`;
+  if (!$('#qrmodal').hidden) fillQR();
+}
+function fillQR(){
+  const id = reportData.id, url = publicUrl(id), st = live[id], s = $('#qr-state');
+  $('#qr-big').innerHTML = qrSVG(url);
+  $('#qr-name').textContent = cableName(reportModel);
+  s.textContent = st === 'wait' ? '휴대폰 반영 중 · 1~2분 뒤 열림' : st === 'fail' ? 'GitHub에 올라가지 않음 · tools\\GitHub_올리기.bat 실행' : st === 'ok' ? '휴대폰에서 열림' : '';
+  s.className = 'qr-state' + (st === 'wait' || st === 'fail' ? ' wait' : st === 'ok' ? ' ok' : '');
+  $('#qr-url').href = url; $('#qr-url').textContent = url;
+}
+function openQR(){ fillQR(); $('#qrmodal').hidden = false; $('#qr-close').focus(); }
+function closeQR(){ $('#qrmodal').hidden = true; }
+async function copyQR(){
+  const b = $('#qr-copy');
+  try { await navigator.clipboard.writeText(publicUrl(reportData.id)); b.textContent = '복사됨'; }
+  catch (e){ b.textContent = '복사 안 됨'; }
+  setTimeout(() => { b.textContent = '링크 복사'; }, 1500);
+}
+// QR + 케이블 이름을 PNG로 (인쇄 · 도면 첨부용)
+function saveQR(){
+  const name = cableName(reportModel), img = new Image(), W = 1000, Q = 860;
+  img.onload = () => {
+    const cv = document.createElement('canvas'); cv.width = W; cv.height = W + 120;
+    const g = cv.getContext('2d');
+    g.fillStyle = '#fff'; g.fillRect(0, 0, cv.width, cv.height);
+    g.imageSmoothingEnabled = false; g.drawImage(img, (W - Q) / 2, 60, Q, Q);
+    g.fillStyle = '#0E1013'; g.textAlign = 'center'; g.font = '500 44px "Gothic A1", sans-serif';
+    g.fillText(name, W / 2, Q + 130, W - 80);
+    g.fillStyle = '#7D838C'; g.font = '400 28px "Gothic A1", sans-serif';
+    g.fillText('휴대폰 카메라로 찍으면 바로 열립니다', W / 2, Q + 180, W - 80);
+    cv.toBlob(b => { const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = `${name.replace(/[\\/:*?"<>|]/g, '_')}_QR.png`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000); });
+  };
+  img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(qrSVG(publicUrl(reportData.id)));
+}
+
+/* --- 휴대폰(QR) 첫 화면: 케이블과 이름만 → 누르면 상세 --- */
+function enterLite(){
+  $('#lite-name').textContent = cableName(reportModel);
+  $('#app').dataset.lite = '1';
+}
+function exitLite(){
+  if (!$('#app').dataset.lite) return;
+  delete $('#app').dataset.lite;
+  requestAnimationFrame(() => goTo(viewFor(state.mode, true)));
 }
 
 /* --- 재료비 (버튼으로만 열림) --- */
@@ -2756,6 +2926,12 @@ async function boot(){
   $('#cf-go').onclick = publishReport;
   $('#cost-close').onclick = closeCost;
   $('#cost').onclick = e => { if (e.target === $('#cost')) closeCost(); };
+  $('#qrbox').onclick = openQR;
+  $('#qr-close').onclick = closeQR;
+  $('#qrmodal').onclick = e => { if (e.target === $('#qrmodal')) closeQR(); };
+  $('#qr-copy').onclick = copyQR;
+  $('#qr-save').onclick = saveQR;
+  $('#lite-more').onclick = exitLite;
   $('#kwtable').innerHTML = GUIDE.map(([k, v]) => `<tr><td>${k}</td><td>${v.split(', ').map(x => `<code>${esc(x)}</code>`).join('')}</td></tr>`).join('');
 
   const fileIn = $('#file');
@@ -2788,7 +2964,7 @@ async function boot(){
   $('#unit').onchange = e => { if (!model) return; model.unit = parseFloat(e.target.value); renderSummary(); runReview(); };
   window.addEventListener('keydown', e => {
     if (e.key !== 'Escape') return;
-    if (!$('#cost').hidden) closeCost(); else if (state.sel) select(null);
+    if (!$('#qrmodal').hidden) closeQR(); else if (!$('#cost').hidden) closeCost(); else if (state.sel) select(null);
   });
 
   resize();
@@ -2805,8 +2981,11 @@ async function boot(){
   };
   $('#loading').remove();
   setView('report');
+  if (PUBLIC && reportModel) enterLite();
+  else if (PUBLIC) $('#app').dataset.empty = '1';           // 케이블 없음: 안내 문구만
   goTo(viewFor('strip', false), true);
   detectAccess();
+  if (!PUBLIC && reportData && ID_RE.test(reportData.id || '')) watchLive(reportData.id, reportData.meta && reportData.meta.at);
 }
 boot();
 </script>

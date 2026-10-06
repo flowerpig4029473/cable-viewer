@@ -26,12 +26,17 @@ while ($listener.IsListening) {
   try {
     $path = [Uri]::UnescapeDataString($ctx.Request.Url.AbsolutePath.TrimStart('/'))
     if ($ctx.Request.HttpMethod -eq 'PUT') {
-      # 뷰어의 "확인 완료 · 게시" → report.json 저장 (이 파일만 허용)
+      # 뷰어의 "확인 완료 · 게시" → cables/<id>.json (QR 주소) + report.json (최신 보고) 저장 후 GitHub에 올림
       $reader = New-Object System.IO.StreamReader($ctx.Request.InputStream, [System.Text.Encoding]::UTF8)
       $text = $reader.ReadToEnd()
-      if ($path -ne 'report.json' -or -not $text.TrimStart().StartsWith('{')) { $ctx.Response.StatusCode = 400; $ctx.Response.Close(); continue }
-      [System.IO.File]::WriteAllText((Join-Path $dir 'report.json'), $text, (New-Object System.Text.UTF8Encoding $false))
-      Write-Host "report.json saved"
+      $m = [regex]::Match($path, '^cables/([a-z0-9]{4,16})\.json$')
+      if (-not $m.Success -or -not $text.TrimStart().StartsWith('{')) { $ctx.Response.StatusCode = 400; $ctx.Response.Close(); continue }
+      $utf8 = New-Object System.Text.UTF8Encoding $false
+      New-Item -ItemType Directory -Force (Join-Path $dir 'cables') | Out-Null
+      [System.IO.File]::WriteAllText((Join-Path $dir $path), $text, $utf8)
+      [System.IO.File]::WriteAllText((Join-Path $dir 'report.json'), $text, $utf8)
+      Write-Host "게시: $path"
+      Start-Process powershell -WindowStyle Hidden -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$dir\tools\publish-push.ps1`"", '-Id', $m.Groups[1].Value
       $ctx.Response.StatusCode = 204; $ctx.Response.Close(); continue
     }
     if ($path -eq '' -or $path -eq 'index.html') {

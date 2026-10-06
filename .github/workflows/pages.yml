@@ -1,5 +1,5 @@
 # main에 올릴 때마다 공개 뷰어(GitHub Pages)를 새로 만든다.
-# 주소: https://flowerpig4029473.github.io/cable-viewer/  (qr.html 의 QR이 가리키는 곳)
+# 케이블 주소: https://flowerpig4029473.github.io/cable-viewer/?c=<id>  (보고 화면의 QR이 가리키는 곳)
 name: 공개 뷰어 배포
 
 on:
@@ -39,7 +39,9 @@ jobs:
             cat index.html
             printf '%s' '</body></html>'
           } > _site/index.html
-          cp iec-tables.json report.json qr.html _site/
+          cp iec-tables.json _site/
+          # 게시된 케이블 (QR 주소 ?c=<id> 가 여는 파일)
+          if [ -d cables ]; then cp -r cables _site/; fi
 
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v4
