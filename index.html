@@ -339,23 +339,23 @@ button.ck.fail:hover{background:var(--danger-soft);box-shadow:0 0 0 1px var(--da
 .cf-msg.err{color:var(--danger)} .cf-msg.ok{color:var(--ok)}
 #cf-go{height:36px;font-size:14px}
 
-/* 3D 라벨: 번호 · 이름 · 재질, 가는 지시선 */
+/* 3D 이름표: 번호 배지 + 이름 알약, 곧은 세로 지시선 (재질은 마우스를 올리면) */
 .labels{position:absolute;inset:0;pointer-events:none;z-index:1;overflow:hidden}
 .labels svg{position:absolute;inset:0;width:100%;height:100%}
-.labels line{stroke:var(--ink-3);stroke-width:.75;opacity:.8}
-.labels line.fail{stroke:var(--danger);opacity:1}
-.labels circle{fill:var(--ink)}
-.labels circle.fail{fill:var(--danger)}
-.lbl{position:absolute;left:0;top:0;display:flex;align-items:baseline;gap:6px;height:24px;padding:0 4px;font-size:12px;font-weight:500;white-space:nowrap;pointer-events:auto;cursor:pointer;color:var(--ink);text-shadow:0 0 3px var(--halo),0 0 8px var(--halo)}
-.lbl:hover{color:var(--accent)}
-.lbl .num{min-width:0;font-size:11px}
-.lbl small{color:var(--ink-3);font-size:11px;font-weight:400}
-.lbl.fail,.lbl.fail small{color:var(--danger)}
-.lbl.sel{color:var(--accent)}
-.labels.compact .lbl span:not(.num),.labels.compact .lbl small{display:none}
-.labels.compact .lbl .num{font-size:12px;color:var(--ink)}
-.labels.compact .lbl.fail .num{color:var(--danger)}
-
+.labels polyline{fill:none;stroke:var(--ink-3);stroke-width:1;stroke-linejoin:round;opacity:.65}
+.labels polyline.fail{stroke:var(--danger);opacity:.9}
+.labels circle{fill:var(--surface);stroke:var(--ink-2);stroke-width:1.5}
+.labels circle.fail{stroke:var(--danger)}
+.lbl{position:absolute;left:0;top:0;display:flex;align-items:center;gap:6px;height:26px;padding:0 11px 0 4px;border-radius:999px;background:var(--glass-strong);box-shadow:0 0 0 .5px var(--line-2),0 2px 8px rgba(0,0,0,.08);font-size:12px;font-weight:600;letter-spacing:-.01em;white-space:nowrap;pointer-events:auto;cursor:pointer;color:var(--ink);transition:background .15s,color .15s}
+.lbl:hover{background:var(--surface)}
+.lbl .num{display:grid;place-items:center;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--fill);color:var(--ink-2);font-size:11px;font-weight:700}
+.lbl .num.fail{background:var(--danger);color:#fff}
+.lbl.fail .nm{color:var(--danger)}
+.lbl.sel{background:var(--accent);color:#fff;box-shadow:0 2px 10px rgba(0,113,227,.35)}
+.lbl.sel .nm{color:#fff}
+.lbl.sel .num{background:rgba(255,255,255,.25);color:#fff}
+.labels.compact .lbl{width:26px;padding:0;justify-content:center}
+.labels.compact .lbl .nm{display:none}
 /* 창 (재료비 · QR) */
 .modal{position:fixed;inset:0;z-index:20;display:grid;place-items:center;padding:16px;background:var(--scrim);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
 .modal-box{width:min(640px,100%);max-height:calc(100% - 32px);overflow:auto;background:var(--surface);border-radius:22px;box-shadow:0 24px 80px rgba(0,0,0,.25);padding:22px 24px 24px}
@@ -3206,24 +3206,36 @@ function buildLabels(){
   box.querySelectorAll('.lbl').forEach(e => e.remove());
   lblItems = [];
   if (!model) return;
+  // 같은 계단에 놓인 같은 종류 층(다심 케이블의 색별 코어 등)은 이름표 하나로 묶는다
+  const sets = new Map();
   for (const g of model.groups){
     if (!g.no || !g.visible) continue;
+    const k = g.comp + '|' + g.level;
+    if (!sets.has(k)) sets.set(k, []);
+    sets.get(k).push(g);
+  }
+  for (const gs of sets.values()){
+    gs.sort((a, b) => a.no - b.no);
+    const g = gs[0], fail = gs.some(x => x.status === 'fail'), nos = gs.map(x => x.no);
+    const seq = nos.every((n, i) => !i || n === nos[i - 1] + 1);
+    const numTxt = nos.length === 1 ? nos[0] : seq ? `${nos[0]}–${nos[nos.length - 1]}` : nos.join('·');
     const el = document.createElement('div');
-    el.className = 'lbl' + (g.status === 'fail' ? ' fail' : '') + (state.sel === g ? ' sel' : '');
-    el.innerHTML = `<span class="num ${g.status === 'fail' ? 'fail' : ''}">${g.no}</span><span>${esc(nameOf(g))}</span><small>${esc(SHORT[g.mat] || MAT[g.mat].ko)}</small>`;
-    el.onclick = () => select(state.sel === g ? null : g);
+    el.className = 'lbl' + (fail ? ' fail' : '') + (gs.includes(state.sel) ? ' sel' : '');
+    el.innerHTML = `<span class="num ${fail ? 'fail' : ''}">${numTxt}</span><span class="nm">${esc(gs.length > 1 ? COMP[g.comp].ko : nameOf(g))}</span>`;
+    el.title = gs.map(x => `${x.no}. ${nameOf(x)} · ${MAT[x.mat].ko}`).join('\n');
+    el.onclick = () => { const i = gs.indexOf(state.sel); select(i < 0 ? gs[0] : i + 1 < gs.length ? gs[i + 1] : null); };
     box.appendChild(el);
     const out = [], inn = [];
-    for (const rg of g.regions){
+    for (const rg of gs.flatMap(x => x.regions)){
       const P = contourPts(rg.outer, model), st = Math.max(1, Math.floor(P.length / 40));
       for (let i = 0; i < P.length; i += st) out.push([P[i][0], P[i][1], rg]);
       for (const h of rg.holes){ const Q = contourPts(h, model), sq = Math.max(1, Math.floor(Q.length / 40)); for (let i = 0; i < Q.length; i += sq) inn.push([Q[i][0], Q[i][1], rg]); }
     }
-    lblItems.push({g, el, out, inn, w: 0, cw: 0});
+    lblItems.push({g, gs, el, out, inn, w: 0, cw: 0});
   }
   lblMeasured = false;
 }
-function markLabelSel(){ for (const it of lblItems) it.el.classList.toggle('sel', state.sel === it.g); }
+function markLabelSel(){ for (const it of lblItems) it.el.classList.toggle('sel', it.gs.includes(state.sel)); }
 const _v3 = new THREE.Vector3();
 function rotPt(p, z){
   const tw = p[2] && p[2]._tw; if (!tw || !tw.rate) return [p[0], p[1]];
@@ -3246,13 +3258,13 @@ function updateLabels(){
   if (!on) return;
   const W = stageEl.clientWidth, H = stageEl.clientHeight;
   const cov = sideCover(), minX = cov.left + 14, maxX = W - cov.right - 14;
-  const compact = maxX - minX < 560;
-  box.classList.toggle('compact', compact);
   if (++lblTick % 90 === 0) lblMeasured = false;          // 글꼴 로딩 · 문구 변화 반영
-  if (!lblMeasured || lblMeasured !== (compact ? 'c' : 'f')){
+  if (!lblMeasured){
+    box.classList.remove('compact');
     for (const it of lblItems) it.w = it.el.offsetWidth;
-    lblMeasured = compact ? 'c' : 'f';
+    lblMeasured = true;
   }
+  let compact = maxX - minX < 420;
   cable.updateMatrixWorld(true);
   let maxL = 0; for (const g of model.groups) maxL = Math.max(maxL, g.len);
   _v3.copy(camera.position); cable.worldToLocal(_v3);
@@ -3275,26 +3287,55 @@ function updateLabels(){
     const m = pi ? [(po[0] + pi[0]) / 2, (po[1] + pi[1]) / 2] : [po[0] * 0.85, po[1] * 0.85];
     return [m[0], m[1], z + (zFace ? 0.001 : -0.001)];
   };
-  const place = [];
+  let place = [];
   if (!face){
-    // 옆에서 보기: 위 · 아래 두 줄에 번갈아 배치
+    // 옆에서 보기: 층마다 이름표를 바로 위(또는 아래)에 두고 세로선 하나로 잇는다.
+    // 이웃한 층은 위 · 아래로 번갈아, 겹치면 바깥 줄(최대 4줄)로. 그래도 안 되면 번호만 표시
     const up = [thCam + 0.95, thCam - 0.95].sort((a, b) => Math.sin(b) - Math.sin(a));
-    items.forEach((it, i) => {
-      const side = i % 2 === 0 ? 0 : 1, a = anchor(it, up[side]); if (!a) return;
-      const s = toScreen(a[0], a[1], a[2], W, H);
-      place.push({it, side, ax: s[0], ay: s[1]});
-    });
-    for (const side of [0, 1]){
-      const row = place.filter(p => p.side === side).sort((a, b) => a.ax - b.ax);
-      if (!row.length) continue;
-      const top = window.innerWidth > 860 ? 76 : 12;
-      const y = side === 0 ? Math.max(top, Math.min(...row.map(p => p.ay)) - 44 - h) : Math.min(H - 118, Math.max(...row.map(p => p.ay)) + 44);
-      let x = -Infinity;
-      for (const p of row){ p.x = Math.max(p.ax - p.it.w / 2, x + 8); x = p.x + p.it.w; p.y = y; }
-      const over = x - maxX; if (over > 0) for (const p of row) p.x -= over;
-      const under = minX - row[0].x; if (under > 0) for (const p of row) p.x += under;
-      for (const p of row){ p.lx = Math.min(Math.max(p.ax, p.x + 10), p.x + p.it.w - 10); p.ly = side === 0 ? p.y + h : p.y; }
+    const all = [];
+    for (const it of items){
+      const a0 = anchor(it, up[0]), a1 = anchor(it, up[1]); if (!a0 || !a1) continue;
+      const s0 = toScreen(a0[0], a0[1], a0[2], W, H), s1 = toScreen(a1[0], a1[1], a1[2], W, H);
+      all.push({it, s: [s0, s1], mx: (s0[0] + s1[0]) / 2});
     }
+    all.sort((a, b) => a.mx - b.mx);
+    const top = window.innerWidth > 860 ? 76 : 12, bottom = H - (window.innerWidth > 860 ? 96 : 76), ROWS = 4, gap = 6;
+    const edgeY = [Math.min(...all.map(p => p.s[0][1])), Math.max(...all.map(p => p.s[1][1]))];
+    const rowY = (side, t) => side === 0 ? Math.max(top + (ROWS - 1 - t) * (h + gap), edgeY[0] - 26 - h - t * (h + gap))
+                                         : Math.min(bottom - h - (ROWS - 1 - t) * (h + gap), edgeY[1] + 26 + t * (h + gap));
+    const layout = (cmp) => {
+      let ok = true;
+      const placed = [[], []];
+      all.forEach((p, k) => {
+        const w = cmp ? h : p.it.w, pref = k % 2;
+        let best = null;
+        for (const side of [pref, 1 - pref]){
+          const ax = p.s[side][0], P = placed[side];
+          // 세로선이 이름표 가운데 → 왼쪽 · 오른쪽 끝 쪽으로 밀어 보며 빈 자리를 찾음
+          const xs = [ax - w / 2, ax - w + 14, ax - 14].map(x => Math.min(Math.max(x, minX), maxX - w)).filter(x => ax >= x + 6 && ax <= x + w - 6);
+          for (let t = 0; t < ROWS && !best; t++) for (const x0 of xs){
+            const free = P.every(q => (q.t !== t || x0 > q.x1 + 6 || x0 + w < q.x0 - 6)
+              && (q.t >= t || ax < q.x0 - 4 || ax > q.x1 + 4)              // 내 세로선이 안쪽 줄 이름표를 지나지 않게
+              && (q.t <= t || q.ax < x0 - 4 || q.ax > x0 + w + 4));         // 바깥 줄 세로선을 내 이름표가 가리지 않게
+            if (free){ best = {side, t, x0}; break; }
+          }
+          if (best) break;
+        }
+        if (!best){ ok = false; best = {side: pref, t: ROWS - 1, x0: Math.min(Math.max(p.s[pref][0] - w / 2, minX), maxX - w)}; }
+        p.side = best.side; p.ax = p.s[p.side][0]; p.ay = p.s[p.side][1];
+        p.t = best.t; p.x = best.x0; p.y = rowY(p.side, p.t); p.w = w;
+        placed[p.side].push({x0: p.x, x1: p.x + w, t: p.t, ax: p.ax});
+      });
+      return ok;
+    };
+    if (!compact && !layout(false)) compact = true;
+    if (compact) layout(true);
+    for (const p of all){
+      const inside = p.ax >= p.x + 6 && p.ax <= p.x + p.w - 6, cy = p.y + h / 2;
+      p.path = inside ? [[p.ax, p.ay], [p.ax, p.side === 0 ? p.y + h : p.y]]                  // 곧은 세로선
+        : [[p.ax, p.ay], [p.ax, cy], [p.ax < p.x ? p.x : p.x + p.w, cy]];                       // 화면 끝에서 밀린 경우만 꺾음
+    }
+    place = all;
   } else {
     // 끝면을 정면으로 볼 때: 좌 · 우 두 열
     const c0 = toScreen(0, 0, zFace ? maxL : 0, W, H), ex = toScreen(1, 0, zFace ? maxL : 0, W, H), ey = toScreen(0, 1, zFace ? maxL : 0, W, H);
@@ -3321,12 +3362,14 @@ function updateLabels(){
       for (const p of col){ p.lx = side === 1 ? p.x : p.x + p.it.w; p.ly = p.y + h / 2; }
     }
   }
+  box.classList.toggle('compact', compact);
   const shown = new Set(place.map(p => p.it));
   for (const it of items) if (!shown.has(it)) it.el.style.transform = 'translate(-9999px,0)';
   for (const p of place){
     p.it.el.style.transform = `translate(${Math.round(p.x)}px,${Math.round(p.y)}px)`;
-    const f = p.it.g.status === 'fail' ? ' class="fail"' : '';
-    lines.push(`<line${f} x1="${p.ax.toFixed(1)}" y1="${p.ay.toFixed(1)}" x2="${p.lx.toFixed(1)}" y2="${p.ly.toFixed(1)}"/><circle${f} cx="${p.ax.toFixed(1)}" cy="${p.ay.toFixed(1)}" r="2.6"/>`);
+    const f = p.it.gs.some(x => x.status === 'fail') ? ' class="fail"' : '';
+    const pts = (p.path || [[p.ax, p.ay], [p.lx, p.ly]]).map(([x, y]) => `${Math.round(x) + 0.5},${Math.round(y) + 0.5}`).join(' ');
+    lines.push(`<polyline${f} points="${pts}"/><circle${f} cx="${(Math.round(p.ax) + 0.5)}" cy="${(Math.round(p.ay) + 0.5)}" r="3"/>`);
   }
   svg.innerHTML = lines.join('');
 }
