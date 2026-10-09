@@ -32,7 +32,7 @@ jobs:
           {
             printf '%s' '<!doctype html><html lang="ko"><head><meta charset="utf-8">'
             printf '%s' '<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">'
-            printf '%s' '<meta name="theme-color" content="#0E1013"><meta name="apple-mobile-web-app-capable" content="yes">'
+            printf '%s' '<meta name="theme-color" content="#F5F5F7" media="(prefers-color-scheme: light)"><meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)"><meta name="apple-mobile-web-app-capable" content="yes">'
             printf '%s' '<title>케이블 단면 3D 뷰어</title>'
             printf '%s' '<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>'
             printf '%s' '<script>window.CABLE_PUBLIC=true</script></head><body>'
