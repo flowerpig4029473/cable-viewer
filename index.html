@@ -267,6 +267,11 @@ button.ck.fail:hover{background:var(--danger-soft);box-shadow:0 0 0 1px var(--da
 .app[data-view="design"] .report-only{display:none!important}
 .app[data-view="report"] .legend{top:70px}
 .viewseg button{min-width:58px}
+/* 대표 모델 고르기: 보고 화면 위쪽 가운데의 세그먼트 */
+.modelbar{position:absolute;left:50%;top:14px;transform:translateX(-50%);max-width:calc(100% - 520px);overflow-x:auto;scrollbar-width:none;
+  background:linear-gradient(var(--fill),var(--fill)),var(--glass);-webkit-backdrop-filter:saturate(180%) blur(20px);backdrop-filter:saturate(180%) blur(20px);box-shadow:var(--shadow)}
+.modelbar::-webkit-scrollbar{display:none}
+.modelbar button{flex:none}
 .btn.sm{height:28px;padding:0 12px;font-size:12px}
 .btn[disabled]{opacity:.35;cursor:not-allowed;transform:none}
 
@@ -415,6 +420,8 @@ button.ck.fail:hover{background:var(--danger-soft);box-shadow:0 0 0 1px var(--da
   .verdict{top:14px}
   .legend,.app[data-view="report"] .legend{top:14px}
   .app[data-view="design"] .legend{top:56px}
+  .modelbar{position:static;transform:none;max-width:100%;width:100%;order:5;-webkit-mask-image:linear-gradient(90deg,#000 88%,transparent);mask-image:linear-gradient(90deg,#000 88%,transparent)}
+  .modelbar button{flex:1 0 auto}
   .tb-actions{width:100%;flex-wrap:nowrap}
   .tb-actions .select{flex:1;min-width:0}
   .dial,.vb-sep{display:none}
@@ -438,6 +445,7 @@ button.ck.fail:hover{background:var(--danger-soft);box-shadow:0 0 0 1px var(--da
       </svg>
       <h1>케이블 단면 3D 뷰어</h1>
     </div>
+    <nav class="seg modelbar report-only" id="modelbar" aria-label="대표 모델" hidden></nav>
     <div class="seg viewseg" role="group" aria-label="화면" id="viewseg" hidden>
       <button type="button" data-view="report" aria-pressed="true">보고</button>
       <button type="button" data-view="design" aria-pressed="false">설계</button>
@@ -2800,7 +2808,10 @@ function showError(msg){
    ===================================================================== */
 const UNITS = {1: 25.4, 4: 1, 5: 10, 6: 1000};
 let view = 'report';              // 'report' 보고 화면 | 'design' 설계 화면
-let reportData = null;            // 게시된 보고 (report.json)
+let reportData = null;            // 보고 화면에 띄운 보고 (게시 보고 또는 대표 모델)
+let pubData = null;               // 설계자가 게시한 보고 (report.json · cables/<id>.json)
+let repSrc = 'pub';               // 'pub' 또는 대표 모델 id
+const repCache = new Map();
 let reportModel = null, workModel = null;
 let canPublish = false, moreOpen = false;
 
@@ -2893,7 +2904,7 @@ function setView(v){
   document.querySelectorAll('#viewseg [data-view]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.view === v)));
   if (v === 'report'){
     if (state.color === 'code') setColor('real');
-    if (reportData && !reportModel) reportModel = modelFromReport(reportData);
+    if (reportData && !reportModel){ reportModel = modelFromReport(reportData); repCache.set(repSrc, reportModel); }
     show(reportModel);
   } else {
     if (!workModel){
@@ -2967,7 +2978,7 @@ async function publishReport(){
       let saved = false;
       try { saved = (await fetch(`cables/${id}.json`, {method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({...data, id})})).ok; } catch (e){}
       if (saved){ m.publicId = id; data.id = id; }
-      reportData = data; reportModel = null;
+      pubData = reportData = data; reportModel = null; repSrc = 'pub'; repCache.delete('pub'); renderModelBar();
       cfMsg(saved ? '게시 완료 · 휴대폰 반영 1~2분' : '미리보기: 저장 안 됨 (화면만 반영)', 'ok');
       setView('report');
       if (saved) watchLive(id, data.meta.at, true);
@@ -2977,7 +2988,7 @@ async function publishReport(){
   }
   try {
     await art.publish({'report.json': {content: JSON.stringify(data), contentType: 'application/json'}});
-    reportData = data; reportModel = null;
+    pubData = reportData = data; reportModel = null; repSrc = 'pub'; repCache.delete('pub'); renderModelBar();
     cfMsg(`게시 완료 · ${date}`, 'ok');
     setView('report');
   } catch (e){
@@ -3483,6 +3494,37 @@ const SAMPLES = [
   {id: 'lv4', label: '0.6/1kV 4C 95㎟ 선형압축 · 강대', sub: '예제 · 섹터 도체 · PP끈 · 강대 간격감기', make: sampleLV4},
   {id: 'mv3', label: '6/10kV 3C 50㎟ 동테이프 · 인터록', sub: '예제 · 색별 테이프 · 동테이프 중첩 · 인터록 외장', make: sampleMV3}
 ];
+// 보고 화면에서 바로 고르는 대표 모델 5종. pub = 공개 사이트 주소 (cables/<pub>.json, QR)
+const REPS = [
+  {id: 'cncv', pub: 'rep229kv', short: '22.9kV 배전'},
+  {id: 'hv', pub: 'rep154kv', short: '154kV 송전'},
+  {id: 'mv3', pub: 'rep6kv3c', short: '6/10kV 고압'},
+  {id: 'tfr', pub: 'rep1kv3c', short: '0.6/1kV 저압'},
+  {id: 'lv4', pub: 'rep1kv4c', short: '0.6/1kV 외장'}
+];
+function repReport(r){
+  const s = SAMPLES.find(x => x.id === r.id);
+  return {v: 1, id: r.pub, sample: r.id, dxf: null, name: s.label, sub: '대표 모델', unit: 1, overrides: [],
+    meta: {designer: '대표 모델', rev: '—', date: '', example: true}};
+}
+// 보고 화면에 띄울 보고 고르기: 'pub' = 게시한 보고, 그 밖 = 대표 모델
+function selectReport(src){
+  repSrc = src;
+  reportData = src === 'pub' ? pubData : repReport(REPS.find(r => r.id === src));
+  reportModel = repCache.get(src) || null;
+  if (reportData && !reportModel){ reportModel = modelFromReport(reportData); repCache.set(src, reportModel); }
+  renderModelBar();
+  if (view === 'report'){ show(reportModel); goTo(viewFor(state.mode, false)); }
+}
+function renderModelBar(){
+  const bar = $('#modelbar'), on = !(PUBLIC && PUBLIC_ID);
+  bar.hidden = !on;
+  if (!on) return;
+  const hasPub = pubData && !(pubData.meta && pubData.meta.example);
+  const items = [...(hasPub ? [['pub', '최근 게시', pubData.name || '']] : []), ...REPS.map(r => [r.id, r.short, SAMPLES.find(s => s.id === r.id).label])];
+  bar.innerHTML = items.map(([k, t, full]) => `<button type="button" data-src="${k}" aria-pressed="${k === repSrc}" title="${esc(full)}">${esc(t)}</button>`).join('');
+  bar.querySelectorAll('button').forEach(b => b.onclick = () => { if (repSrc !== b.dataset.src) selectReport(b.dataset.src); });
+}
 
 /* =====================================================================
    10. 이벤트 연결 · 시작
@@ -3553,7 +3595,11 @@ async function boot(){
   syncTheme();
   frame();
   const [stdOk, rd] = await Promise.all([loadStd(), loadReportData()]);
-  reportData = rd;
+  pubData = rd;
+  // 처음 화면: 게시한 보고가 있으면 그것, 없거나 예제면 대표 모델 첫 번째 (QR 주소로 열면 그 케이블만)
+  repSrc = PUBLIC_ID || (rd && !(rd.meta && rd.meta.example)) ? 'pub' : REPS[0].id;
+  reportData = repSrc === 'pub' ? rd : repReport(REPS[0]);
+  renderModelBar();
   if (!stdOk) console.warn('iec-tables.json 을 불러오지 못해 규격 판정을 건너뜁니다');
   // 자동 검사용 (tests/test.html 이 ?test 로 열 때만)
   if (new URLSearchParams(location.search).has('test')) window.__cableTest = {
@@ -3563,11 +3609,10 @@ async function boot(){
   };
   $('#loading').remove();
   setView('report');
-  if (PUBLIC && reportModel) enterLite();
-  else if (PUBLIC) $('#app').dataset.empty = '1';           // 케이블 없음: 안내 문구만
+  if (PUBLIC && PUBLIC_ID){ if (reportModel) enterLite(); else $('#app').dataset.empty = '1'; }   // 없는 QR 주소: 안내 문구만
   goTo(viewFor('strip', false), true);
   detectAccess();
-  if (!PUBLIC && reportData && ID_RE.test(reportData.id || '')) watchLive(reportData.id, reportData.meta && reportData.meta.at);
+  if (!PUBLIC && repSrc === 'pub' && pubData && ID_RE.test(pubData.id || '')) watchLive(pubData.id, pubData.meta && pubData.meta.at);
 }
 boot();
 </script>
