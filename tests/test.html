@@ -36,21 +36,21 @@ const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':
 
 async function api(){
   const t0 = Date.now();
-  while (Date.now() - t0 < 60000){
+  while (Date.now() - t0 < 120000){
     const w = $('#app').contentWindow;
     if (w && w.__cableTest) return w.__cableTest;
     await new Promise(r => setTimeout(r, 200));
   }
-  throw new Error('뷰어를 60초 안에 불러오지 못함 (three.js · 네트워크 확인)');
+  throw new Error('뷰어를 120초 안에 불러오지 못함 (three.js · 네트워크 확인)');
 }
 
 // 판정 결과를 비교하기 쉬운 형태로 요약
-function digest(m, checks){
+function digest(m, checks, T){
   const count = {};
   for (const c of checks) count[c.status] = (count[c.status] || 0) + 1;
   return {
     unit: m.unit, levels: m.nLevels,
-    groups: m.groups.map(g => [g.comp, g.mat, g.color ? g.color.name : ''].filter(Boolean).join(' / ')),
+    groups: m.groups.map(g => [g.comp, g.mat, g.color ? g.color.name : '', T ? T.formText(m, g) : ''].filter(Boolean).join(' / ')),
     iec: {cls: m.iec.cls, size: m.iec.size, cond: m.iec.cond},
     count,
     checks: checks.map(c => `${c.status} | ${c.sec} | ${c.title} | ${(c.val || []).map(v => v.join(' ')).join(', ')}` + (c.verify ? ` | ${c.verify}` : ''))
@@ -103,7 +103,7 @@ async function run(){
 
   for (const s of T.SAMPLES) test(`예제 판정 · ${s.label}`, () => {
     const m = sampleModel(T, s.id);
-    current['sample:' + s.id] = digest(m, T.judge(m));
+    current['sample:' + s.id] = digest(m, T.judge(m), T);
     return golden('sample:' + s.id);
   });
 
@@ -111,17 +111,32 @@ async function run(){
     const errs = [];
     for (const s of T.SAMPLES){
       const m = sampleModel(T, s.id);
-      const a = digest(m, T.judge(m));
+      const a = digest(m, T.judge(m), T);
       const d = JSON.parse(JSON.stringify(T.snapshot(m, {designer: '검사'})));
       const m2 = T.modelFromReport(d);
       if (!m2){ errs.push(`${s.id}: 불러오기 실패`); continue; }
-      diff(a, digest(m2, T.judge(m2)), s.id, errs);
+      diff(a, digest(m2, T.judge(m2), T), s.id, errs);
       // 도면을 통째로 저장한 경우 (사용자 DXF)
       const d2 = {...d, sample: null, dxf: s.make()};
       const m3 = T.modelFromReport(d2);
       if (!m3){ errs.push(`${s.id}: DXF 보고 불러오기 실패`); continue; }
-      diff(a, digest(m3, T.judge(m3)), s.id + '(dxf)', errs);
+      diff(a, digest(m3, T.judge(m3), T), s.id + '(dxf)', errs);
     }
+    return errs;
+  });
+
+  test('외형 구조 변경 → 저장 → 다시 불러오기', () => {
+    const m = sampleModel(T, 'mv3');
+    const scr = m.groups.find(g => g.comp === 'mscreen'), ins = m.groups.find(g => g.comp === 'insulation');
+    scr.form = {kind: 'braid', car: 32, cov: 90};
+    ins.form = {kind: 'ink', text: 'L1'};
+    T.judge(m);
+    const want = m.groups.map(g => T.formText(m, g));
+    const m2 = T.modelFromReport(JSON.parse(JSON.stringify(T.snapshot(m, {designer: '검사'}))));
+    if (!m2) return ['불러오기 실패'];
+    T.judge(m2);
+    const errs = diff(want, m2.groups.map(g => T.formText(m2, g)), 'forms');
+    if (!/편조 · 32 캐리어 · 피복률 90/.test(T.formText(m2, m2.groups.find(g => g.comp === 'mscreen')))) errs.push('편조 설정이 저장되지 않음');
     return errs;
   });
 

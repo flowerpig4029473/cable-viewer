@@ -168,6 +168,7 @@ select.mini{height:30px;border:0;border-radius:999px;background-color:transparen
 .edit{display:grid;gap:8px}
 .edit label{display:grid;gap:4px;font-size:11.5px;color:var(--ink-3)}
 .edit .select{width:100%;height:32px;font-size:12.5px}
+.edit .num{width:100%;height:32px;border-radius:10px;border:1px solid var(--line-2);background:var(--surface);padding:0 10px;font-size:12.5px;color:var(--ink)}
 .layers{display:flex;flex-wrap:wrap;gap:4px}
 .layers code{font-family:var(--mono);font-size:11px;background:var(--surface-3);padding:2px 6px;border-radius:5px;color:var(--ink-2)}
 
@@ -632,6 +633,20 @@ const MAT = {
       props:[['기재','폴리에스터 부직포'],['기능','쿠션 · 결속']]},
   MICA:{ko:'마이카 (운모) 테이프',en:'Mica tape',color:'#B7A57A',metal:.2,rough:.5,dens:2.80,
       props:[['기재','운모 + 유리섬유'],['내열','화염 속에서도 일정 시간 절연 유지']]},
+  TCU:{ko:'주석도금 연동',en:'Tinned copper',color:'#C4C8CC',metal:1,rough:.3,dens:8.89,rho:17.241,
+      props:[['밀도','8.89 g/cm³'],['표면','주석 도금 (내식 · 납땜성)'],['용도','편조 차폐 · 소선']]},
+  SS:{ko:'스테인리스강',en:'Stainless steel',color:'#B2B8BE',metal:1,rough:.26,dens:7.93,
+      props:[['밀도','7.93 g/cm³'],['특징','내식 · 고강도'],['용도','인터록 외장']]},
+  ALPET:{ko:'알루미늄 마일라 (Al/PET)',en:'Aluminium–polyester laminate',color:'#C9CED3',metal:1,rough:.2,dens:2.0,
+      props:[['구성','알루미늄 박 + 폴리에스터 필름 적층'],['두께','통상 0.03–0.1 mm'],['기능','정전 차폐 (배액선과 함께)']]},
+  GLASS:{ko:'유리섬유 테이프',en:'Glass fibre tape',color:'#ECEBE4',metal:0,rough:.82,dens:2.5,
+      props:[['기재','유리섬유 직물'],['특징','불연 · 내열'],['기능','결속 · 내화 보강']]},
+  PS:{ko:'P/S 테이프',en:'P/S tape',color:'#D6DCE0',metal:0,rough:.38,dens:1.2,
+      props:[['형태','필름 테이프'],['기능','결속 · 층간 분리'],['비고','재질 사양 확인']]},
+  PAPER:{ko:'종이 (크라프트)',en:'Kraft paper',color:'#C4A57A',metal:0,rough:.9,dens:0.9,
+      props:[['형태','종이끈 · 종이 테이프'],['특징','저가 · 흡습 주의']]},
+  FRPP:{ko:'난연 폴리프로필렌',en:'Flame-retardant PP',color:'#D3D5CF',metal:0,rough:.85,dens:1.1,
+      props:[['형태','난연 PP 연신사 (끈)'],['특징','난연 · 비흡습']]},
   VOID:{ko:'공극 (공기)',en:'Void / air gap',color:'#9AA5AB',metal:0,rough:1,dens:0,
       props:[['비고','재료가 없는 빈 공간']]},
   UNSET:{ko:'미지정',en:'Unassigned',color:'#9AA3A8',metal:0,rough:.6,dens:0,
@@ -661,7 +676,8 @@ const COMP = {
 };
 
 const MAT_DEFAULT_COMP = {CU:'conductor',AL:'conductor',XLPE:'insulation',EPR:'insulation',PVC:'sheath',PE:'sheath',LSZH:'sheath',
-  SEMI:'semicon',PP:'filler',PET:'binder',NONWOVEN:'binder',MICA:'fire',STEEL:'armour',LEAD:'metalsheath',WBTAPE:'wbtape',WBCOMP:'wbcomp',VOID:'void'};
+  SEMI:'semicon',PP:'filler',PET:'binder',NONWOVEN:'binder',MICA:'fire',STEEL:'armour',LEAD:'metalsheath',WBTAPE:'wbtape',WBCOMP:'wbcomp',VOID:'void',
+  TCU:'mscreen',SS:'armour',ALPET:'mscreen',GLASS:'binder',PS:'binder',PAPER:'filler',FRPP:'filler'};
 
 // 레이어 이름 · 도면 텍스트에서 구성요소를 찾는 규칙 (위에서부터 먼저 맞는 것)
 const WB = '(\\bwb\\b|water ?block|swell|수밀|차수|팽윤)';
@@ -677,16 +693,23 @@ const COMP_RULES = [
   ['iscreen', /(semi ?con|반도전|\bsc\b)[^]*?(outer|외부|insul|절연|\bout\b)|(outer|외부|절연)[^]*?(semi ?con|반도전)|insulation screen|절연 ?차폐/],
   ['semicon', /semi ?con|반도전/],
   ['insulation', /xlpe|\bepr\b|insul|절연/],
-  ['armour', /armou?r|외장|강선|강대|\bswa\b/],
+  ['armour', /armou?r|외장|강선|강대|\bswa\b|interlock|인터록/],
   ['metalsheath', /metal(lic)? ?sheath|corrugat|주름|연피|\blead\b|\bpb\b|\bal ?sheath|금속 ?시스|알루미늄 ?시스/],
-  ['mscreen', /screen|shield|차폐|cu ?tape|copper ?tape|동 ?테이프/],
-  ['filler', /filler|개재|충실|충전재/],
+  ['mscreen', /screen|shield|차폐|cu ?tape|copper ?tape|동 ?테이프|braid|편조|mylar|마일라/],
+  ['filler', /filler|개재|충실|충전재|끈|\bstring\b/],
   ['bedding', /bedding|inner ?sheath|내부 ?시스|\bbed\b/],
   ['sheath', /sheath|jacket|시스|외피|자켓|재킷/],
   ['conductor', /conductor|\bcond\b|strand|milliken|도체|소선|\bcu\b|copper|구리|\bal\b|alumin|알루미늄/]
 ];
 const MAT_RULES = [
   ['SEMI', /semi ?con|반도전|graphite|흑연/],
+  ['ALPET', /mylar|마일라|\bal ?pet\b|\bal ?polyester/],
+  ['TCU', /tinned|\btcu\b|주석/],
+  ['SS', /stainless|\bsus\b|\bsts\b|스테인리스/],
+  ['GLASS', /glass|글라스|유리 ?섬유/],
+  ['PAPER', /paper|kraft|종이|크라프트/],
+  ['FRPP', /\bfr ?pp\b|난연 ?pp|flame ?retard/],
+  ['PS', /\bp s\b|\bps ?(tape|테이프)/],
   ['XLPE', /xlpe|가교/],
   ['EPR', /\bepr\b|\bepdm\b/],
   ['LSZH', /lszh|hffr|lsoh|halogen|폴리올레핀|저독성/],
@@ -724,6 +747,81 @@ function detect(layerText, labelText){
   if (comp && !mat) mat = COMP[comp].mat;
   if (mat && !comp) comp = MAT_DEFAULT_COMP[mat] || 'unknown';
   return {comp, mat, src, col};
+}
+
+/* --- 외형 구조: 같은 재질이라도 감는 방식 · 형태에 따라 겉모습이 다르다 ---
+   g.form = {kind, wrap, ov, w, dir, car, cov, col, text, pitch, depth}  (설계자가 바꾸면 보고에 저장) */
+const FORM_KO = {plain:'압출', tape:'테이프 감기', braid:'편조', wires:'선재 (도면)', fiber:'끈 연합', none:'식별 없음 (자연색)',
+  mb:'마스터배치', ink:'잉크 인쇄', idtape:'색별 테이프', interlock:'인터록', corrH:'주름 (나선형)', corrA:'주름 (환형)'};
+const WRAP_KO = {over:'중첩 감기', butt:'맞대기 감기', gap:'간격 감기', long:'종첨 (세로 붙임)'};
+const FORM_KINDS = {
+  insulation:['none','mb','ink','idtape'], iscreen:['plain','tape','idtape'], cscreen:['plain','tape'], semicon:['plain','tape'],
+  wbtape:['tape'], binder:['tape'], fire:['tape'], mscreen:['tape','braid','wires'], neutral:['wires'],
+  filler:['fiber','plain'], armour:['wires','tape','interlock'], metalsheath:['plain','corrH','corrA']
+};
+const COND_FORMS = [['round','원형 일반연선 (비압축)'], ['compact','원형 압축연선'], ['sector','선형 압축 (섹터)'], ['segment','분할 압축 (밀리켄)'], ['solid','단선']];
+const ID_COLORS = COLOR_RULES.map(([, hex, name]) => [name, hex]);
+const ID_ORDER = ['갈색', '흑색', '회색', '청색', '녹/황'];                 // IEC 60445 저압 다심 순서
+const idHex = name => (ID_COLORS.find(c => c[0] === name) || ID_COLORS[1])[1];
+const TAPE_KO = {CU:'동 테이프', TCU:'주석도금 동 테이프', AL:'알루미늄 테이프', ALPET:'알루미늄 마일라', STEEL:'강 테이프', SS:'스테인리스 테이프',
+  PET:'PET 테이프', PS:'P/S 테이프', PP:'PP 테이프', GLASS:'글라스 테이프', NONWOVEN:'부직포 테이프', WBTAPE:'수밀 테이프',
+  SEMI:'반도전 테이프', MICA:'마이카 테이프', PAPER:'종이 테이프'};
+const STRING_KO = {PP:'PP끈', FRPP:'난연 PP끈', PAPER:'종이끈'};
+// 표면 질감 종류 (셰이더): 0 없음 1 금속 2 필름 3 유리 직물 4 부직포 5 마이카 6 종이 7 PP 연신
+const TEX_OF = {CU:1, TCU:1, AL:1, ALPET:1, STEEL:1, SS:1, LEAD:1, PET:2, PS:2, GLASS:3, NONWOVEN:4, WBTAPE:4, SEMI:4, MICA:5, PAPER:6, PP:7, FRPP:7};
+
+// 레이어 이름 · 도면 문구로 기본 구조를 정한다
+function defaultForm(g){
+  const kinds = FORM_KINDS[g.comp];
+  if (!kinds) return {kind: 'plain'};
+  const h = g.hint || '', has = re => re.test(h), f = {kind: kinds[0]};
+  const same = (g.peers || [g]).filter(x => x.comp === g.comp).sort((a, b) => a.id - b.id);
+  const idx = Math.max(0, same.indexOf(g));
+  switch (g.comp){
+    case 'insulation': f.kind = has(/\bink\b|잉크|인쇄/) ? 'ink' : has(/색별|colou?r ?tape|id ?tape/) ? 'idtape' : g.color ? 'mb' : 'none'; break;
+    case 'iscreen': f.kind = has(/색별|colou?r ?tape/) ? 'idtape' : has(/tape|테이프/) ? 'tape' : 'plain'; break;
+    case 'cscreen': case 'semicon': f.kind = has(/tape|테이프/) ? 'tape' : 'plain'; break;
+    case 'mscreen': f.kind = g.dot ? 'wires' : has(/braid|편조/) ? 'braid' : 'tape'; break;
+    case 'filler': f.kind = has(/extrud|압출|rubber|고무|\bpvc\b/) ? 'plain' : 'fiber'; break;
+    case 'armour': f.kind = g.dot ? 'wires' : has(/interlock|인터록/) ? 'interlock' : 'tape'; break;
+    case 'metalsheath': f.kind = has(/corrugat|주름/) ? (has(/annular|환형/) ? 'corrA' : 'corrH') : 'plain'; break;
+  }
+  if (f.kind === 'tape' || f.kind === 'idtape'){
+    const pc = h.match(/(\d+(?:\.\d+)?) ?(%|퍼센트|pct)/), wd = h.match(/(?:w|폭|width) ?(\d+(?:\.\d+)?)/);
+    f.wrap = has(/종첨|longitudinal|\blong\b/) || g.mat === 'ALPET' && !has(/helical|나선/) ? 'long' : has(/맞대기|\bbutt\b/) ? 'butt'
+      : g.comp === 'armour' || has(/간격 ?감기|open ?wrap/) ? 'gap' : 'over';
+    const ovDef = {armour: 30, mscreen: 20, fire: 50, wbtape: 30, binder: 25}[g.comp] ?? 25;
+    f.ov = pc ? +pc[1] : f.wrap === 'long' ? 12 : ovDef;
+    f.w = wd ? +wd[1] : ({armour: 35, mscreen: 30, fire: 25, idtape: 20}[f.kind === 'idtape' ? 'idtape' : g.comp] ?? 40);
+    f.dir = has(/\bs ?(dir|꼬임|lay)|left/) ? 'S' : 'Z';
+  }
+  if (f.kind === 'braid'){ f.car = 24; f.cov = 85; }
+  if (f.kind === 'mb' || f.kind === 'ink' || f.kind === 'idtape' && g.comp !== 'armour'){
+    if (f.kind !== 'ink' || g.color) f.col = g.color ? g.color.name : ID_ORDER[idx % ID_ORDER.length];
+  }
+  if (f.kind === 'ink') f.text = String(idx + 1);
+  if (f.kind === 'interlock'){ f.pitch = 16; f.depth = 0; }
+  if (f.kind === 'corrH' || f.kind === 'corrA'){ f.pitch = 0; f.depth = 0; }    // 0 = 지름에 맞춘 기본값
+  return f;
+}
+const formOf = g => g.form || g._df || (g._df = defaultForm(g));
+function formText(g){
+  const f = formOf(g);
+  if (g.comp === 'conductor') return model ? (COND_FORMS.find(c => c[0] === model.iec.cond) || ['', ''])[1] : '';
+  switch (f.kind){
+    case 'tape': case 'idtape': {
+      const what = f.kind === 'idtape' ? `색별 테이프 (${f.col})` : TAPE_KO[g.mat] || MAT[g.mat].ko + ' 테이프';
+      const how = f.wrap === 'over' ? `중첩 ${f.ov} %` : f.wrap === 'gap' ? `간격 ${f.ov} %` : f.wrap === 'long' ? `종첨 겹침 ${f.ov} %` : '맞대기';
+      return `${what} · ${how}${f.wrap === 'long' ? '' : ` · 폭 ${f.w} mm`}`;
+    }
+    case 'braid': return `${MAT[g.mat].ko} 편조 · ${f.car} 캐리어 · 피복률 ${f.cov} %`;
+    case 'fiber': return STRING_KO[g.mat] || MAT[g.mat].ko + ' 끈';
+    case 'mb': return `마스터배치 · ${f.col}`;
+    case 'ink': return `잉크 인쇄 “${f.text}”${f.col ? ` · ${f.col}` : ''}`;
+    case 'interlock': return `인터록 외장 · 피치 ${f.pitch} mm`;
+    case 'corrH': case 'corrA': return `${FORM_KO[f.kind]}${f.pitch ? ` · 피치 ${f.pitch} mm` : ''}`;
+    default: return FORM_KO[f.kind] || '';
+  }
 }
 
 /* =====================================================================
@@ -1116,8 +1214,9 @@ function analyze(prims){
   const nLevels = lv + 1;
 
   groups.forEach((g, i) => {
-    g.id = i; g.visible = true; g.len = 0; g.target = 0;
+    g.id = i; g.visible = true; g.len = 0; g.target = 0; g.peers = groups;
     const d = detect([...g.layers].join(' '), g.labels.join(' '));
+    g.hint = norm([...g.layers].join(' ') + ' ' + g.labels.join(' '));     // 외형 구조 기본값 판단용
     g.color = d.col;
     if (d.comp){ g.comp = d.comp; g.mat = d.mat; g.source = d.src; }
   });
@@ -1161,7 +1260,18 @@ const nrm2 = (x, y) => { const l = Math.hypot(x, y) || 1; return [x / l, y / l];
 /* z=0 ~ z=1 로 돌출한 형상 (길이는 mesh.scale.z 로 조절).
    tw가 있으면 단면을 (cx, cy) 둘레로 z에 비례해 돌려 나선(꼬임) 형상을 만든다.
    회전각은 tw.rate(장면 단위 길이당 rad) × L(이 형상을 그릴 길이)로 미리 계산해 둔다. */
-function buildGeo(outer, holes, tw, L, internal){
+/* 무늬 좌표 aPat (셰이더가 테이프 · 편조 · 소선 무늬를 실제 치수로 그리는 데 씀)
+   벽면: (둘레 방향 0~1, 길이 방향 mm, 1 바깥 벽 / 2 안쪽 벽, 둘레 mm)   절단면: (x mm, y mm, 0, 등가 반지름 mm) */
+function patFrame(outer, mm){
+  let A = 0, X = 0, Y = 0;
+  for (let i = 0, j = outer.length - 1; i < outer.length; j = i++){
+    const c = outer[j][0] * outer[i][1] - outer[i][0] * outer[j][1];
+    A += c; X += (outer[j][0] + outer[i][0]) * c; Y += (outer[j][1] + outer[i][1]) * c;
+  }
+  A /= 2;
+  return Math.abs(A) < 1e-12 ? {cx: 0, cy: 0, mm, r: 0} : {cx: X / (6 * A), cy: Y / (6 * A), mm, r: Math.sqrt(Math.abs(A) / Math.PI) * mm};
+}
+function buildGeo(outer, holes, tw, L, internal, pat){
   const O = signedArea(outer) < 0 ? outer.slice().reverse() : outer;
   const H = holes.map(h => signedArea(h) > 0 ? h.slice().reverse() : h);
   const loops = [[O, outer], ...H.map((h, i) => [h, holes[i]])];
@@ -1171,28 +1281,32 @@ function buildGeo(outer, holes, tw, L, internal){
   const cx = tw ? tw.cx : 0, cy = tw ? tw.cy : 0;
   const rot = (p, a) => { if (!a) return p; const c = Math.cos(a), s = Math.sin(a), dx = p[0] - cx, dy = p[1] - cy; return [cx + dx * c - dy * s, cy + dx * s + dy * c]; };
   const rotV = (v, a) => { if (!a) return v; const c = Math.cos(a), s = Math.sin(a); return [v[0] * c - v[1] * s, v[0] * s + v[1] * c]; };
-  const all = O.concat(...H), N = all.length, pos = [], nor = [], idx = [], lines = [];
-  for (const p of all){ const q = rot(p, total); pos.push(q[0], q[1], 1); nor.push(0, 0, 1); }
-  for (const p of all){ pos.push(p[0], p[1], 0); nor.push(0, 0, -1); }
+  const all = O.concat(...H), N = all.length, pos = [], nor = [], idx = [], lines = [], pa = [];
+  const PF = pat || patFrame(O, 1), Lmm = L * PF.mm;
+  for (const p of all){ const q = rot(p, total); pos.push(q[0], q[1], 1); nor.push(0, 0, 1); pa.push((p[0] - PF.cx) * PF.mm, (p[1] - PF.cy) * PF.mm, 0, PF.r); }
+  for (const p of all){ pos.push(p[0], p[1], 0); nor.push(0, 0, -1); pa.push((p[0] - PF.cx) * PF.mm, (p[1] - PF.cy) * PF.mm, 0, PF.r); }
   for (const [a, b, c] of tris){
     const A = all[a], B = all[b], Cc = all[c];
     if ((B[0] - A[0]) * (Cc[1] - A[1]) - (B[1] - A[1]) * (Cc[0] - A[0]) >= 0) idx.push(a, b, c, N + a, N + c, N + b);
     else idx.push(a, c, b, N + a, N + b, N + c);
   }
   const cosT = Math.cos(40 * D2R);
-  for (const [Lp, orig] of loops){
+  loops.forEach(([Lp, orig], li) => {
     const n = Lp.length, en = [], drawEdge = !(internal && internal.has(orig));
-    for (let i = 0; i < n; i++){ const p = Lp[i], q2 = Lp[(i + 1) % n]; en.push(nrm2(q2[1] - p[1], -(q2[0] - p[0]))); }
+    const acc = [0];
+    for (let i = 0; i < n; i++){ const p = Lp[i], q2 = Lp[(i + 1) % n]; en.push(nrm2(q2[1] - p[1], -(q2[0] - p[0]))); acc.push(acc[i] + Math.hypot(q2[0] - p[0], q2[1] - p[1])); }
+    const per = acc[n] || 1, kind = li === 0 ? 1 : 2;
     for (let i = 0; i < n; i++){
       const p = Lp[i], q2 = Lp[(i + 1) % n], e = en[i], ep = en[(i - 1 + n) % n], ex = en[(i + 1) % n];
       const sharp = e[0] * ep[0] + e[1] * ep[1] <= cosT;
       const nA = sharp ? e : nrm2(e[0] + ep[0], e[1] + ep[1]);
       const nB = (e[0] * ex[0] + e[1] * ex[1] > cosT) ? nrm2(e[0] + ex[0], e[1] + ex[1]) : e;
-      const base = pos.length / 3;
+      const base = pos.length / 3, uA = acc[i] / per, uB = acc[i + 1] / per;
       for (let j = 0; j <= M; j++){
         const z = j / M, a = total * z, P = rot(p, a), Q = rot(q2, a), NA = rotV(nA, a), NB = rotV(nB, a);
         pos.push(P[0], P[1], z, Q[0], Q[1], z);
         nor.push(NA[0], NA[1], 0, NB[0], NB[1], 0);
+        pa.push(uA, z * Lmm, kind, per * PF.mm, uB, z * Lmm, kind, per * PF.mm);
         if (j < M){ const v = base + j * 2; idx.push(v, v + 1, v + 3, v, v + 3, v + 2); }
       }
       if (!drawEdge) continue;
@@ -1200,10 +1314,88 @@ function buildGeo(outer, holes, tw, L, internal){
       lines.push(p[0], p[1], 0, q2[0], q2[1], 0, P1[0], P1[1], 1, Q1[0], Q1[1], 1);
       if (sharp) for (let j = 0; j < M; j++){ const A = rot(p, total * j / M), B = rot(p, total * (j + 1) / M); lines.push(A[0], A[1], j / M, B[0], B[1], (j + 1) / M); }
     }
+  });
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+  geo.setAttribute('aPat', new THREE.Float32BufferAttribute(pa, 4));
+  geo.setIndex(idx);
+  const lineGeo = new THREE.BufferGeometry();
+  lineGeo.setAttribute('position', new THREE.Float32BufferAttribute(lines, 3));
+  return {geo, lineGeo};
+}
+
+/* 표면이 길이 방향으로 굴곡진 고리 (인터록 외장 · 주름 시스).
+   단면 도면은 원이지만 실물은 나선 · 환형으로 접히거나 주름져 있어 형상을 직접 만든다.
+   ring = {cx, cy, ro, ri} (장면 단위), L 장면 길이, mm = 장면 1 = mm */
+function reliefSpec(f, ro, ri, mm){
+  const env = (ro - ri) * mm, D = 2 * ro * mm;
+  if (f.kind === 'interlock'){
+    const pitch = f.pitch || Math.max(8, Math.min(28, D * 0.25));
+    return {pitch, depth: f.depth || Math.min(env * 0.62, pitch * 0.3), helix: true, interlock: true};
+  }
+  const pitch = f.pitch || Math.max(6, Math.min(40, D * 0.27));
+  return {pitch, depth: f.depth || Math.min(env * 0.6, D * 0.06), helix: f.kind === 'corrH', interlock: false};
+}
+function buildRelief(ring, L, f, mm){
+  const {cx, cy, ro, ri} = ring, sp = reliefSpec(f, ro, ri, mm);
+  const Lmm = L * mm, d = sp.depth / mm, tm = Math.max((ro - ri) - d, (ro - ri) * 0.25);
+  const NT = 144, NZ = Math.max(8, Math.min(1400, Math.ceil(Lmm / sp.pitch * (sp.interlock ? 22 : 14))));
+  // 단면 형상 (0 = 바깥 끝, 1 = 가장 깊은 곳)
+  const prof = t => {
+    if (!sp.interlock) return 0.5 - 0.5 * Math.cos(TAU * t);
+    const e = Math.min(t, 1 - t);
+    const groove = Math.exp(-Math.pow(e / 0.05, 2));                       // 띠가 맞물리는 깊은 홈
+    const crown = 0.22 * (1 - Math.sin(Math.PI * t));                      // 둥근 띠
+    const hook = 0.16 * Math.exp(-Math.pow((t - 0.52) / 0.035, 2));         // S자 겹침 단차
+    return Math.min(1, groove + crown + hook);
+  };
+  const rOut = (th, z) => ro - d * prof(((z * Lmm / sp.pitch - (sp.helix ? th / TAU : 0)) % 1 + 1) % 1);
+  const rIn = (th, z) => sp.interlock ? ri : rOut(th, z) - tm;
+  const pos = [], nor = [], pa = [], idx = [], lines = [];
+  const per = TAU * ro * mm;
+  const surf = (rf, kind, flip) => {
+    const base = pos.length / 3, P = [];
+    for (let j = 0; j <= NZ; j++) for (let i = 0; i <= NT; i++){
+      const th = i / NT * TAU, z = j / NZ, r = rf(th, z);
+      P.push([cx + r * Math.cos(th), cy + r * Math.sin(th), z]);
+      pa.push(i / NT, z * Lmm, kind, per);
+    }
+    const at = (i, j) => P[Math.min(NZ, Math.max(0, j)) * (NT + 1) + ((i + NT) % NT)];
+    for (let j = 0; j <= NZ; j++) for (let i = 0; i <= NT; i++){
+      const a = at(i + 1, j), b = at(i - 1, j), c = at(i, j + 1), e = at(i, j - 1);
+      // 형상 좌표(z 0~1) 기준 법선. 길이 배율(scale.z)은 법선 행렬이 보정한다
+      const tx = [a[0] - b[0], a[1] - b[1], a[2] - b[2]], tz = [c[0] - e[0], c[1] - e[1], c[2] - e[2]];
+      const n = [tx[1] * tz[2] - tx[2] * tz[1], tx[2] * tz[0] - tx[0] * tz[2], tx[0] * tz[1] - tx[1] * tz[0]];
+      const l = Math.hypot(...n) || 1, s = flip ? -1 : 1;
+      const p = P[j * (NT + 1) + i];
+      pos.push(...p); nor.push(n[0] / l * s, n[1] / l * s, n[2] / l * s);
+    }
+    for (let j = 0; j < NZ; j++) for (let i = 0; i < NT; i++){
+      const a = base + j * (NT + 1) + i, b = a + 1, c = a + NT + 1, e = c + 1;
+      if (flip) idx.push(a, c, b, b, c, e); else idx.push(a, b, c, b, e, c);
+    }
+  };
+  surf(rOut, 1, false);
+  surf(rIn, 2, true);
+  for (const z of [0, 1]){                                   // 절단면 (고리)
+    const base = pos.length / 3, nz = z ? 1 : -1;
+    for (let i = 0; i <= NT; i++){
+      const th = i / NT * TAU, a = rOut(th, z), b = rIn(th, z), c = Math.cos(th), s = Math.sin(th);
+      pos.push(cx + a * c, cy + a * s, z, cx + b * c, cy + b * s, z);
+      nor.push(0, 0, nz, 0, 0, nz);
+      pa.push(a * c * mm, a * s * mm, 0, ro * mm, b * c * mm, b * s * mm, 0, ro * mm);
+      if (i < NT){ const v = base + i * 2; if (z) idx.push(v, v + 2, v + 1, v + 1, v + 2, v + 3); else idx.push(v, v + 1, v + 2, v + 1, v + 3, v + 2); }
+      if (i < NT){
+        const t2 = (i + 1) / NT * TAU, a2 = rOut(t2, z), b2 = rIn(t2, z), c2 = Math.cos(t2), s2 = Math.sin(t2);
+        lines.push(cx + a * c, cy + a * s, z, cx + a2 * c2, cy + a2 * s2, z, cx + b * c, cy + b * s, z, cx + b2 * c2, cy + b2 * s2, z);
+      }
+    }
   }
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   geo.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+  geo.setAttribute('aPat', new THREE.Float32BufferAttribute(pa, 4));
   geo.setIndex(idx);
   const lineGeo = new THREE.BufferGeometry();
   lineGeo.setAttribute('position', new THREE.Float32BufferAttribute(lines, 3));
@@ -1351,7 +1543,9 @@ const isDark = () => true;   // 나이트 단일 테마
 function baseColor(g){
   if (state.color === 'check') return CHECK_COL[g.status] || CHECK_COL.none;
   if (state.color === 'code' || g.mat === 'UNSET') return g.pal;
-  const m = MAT[g.mat];
+  const m = MAT[g.mat], f = formOf(g);
+  if (f.kind === 'mb') return idHex(f.col);                                   // 마스터배치: 절연체 자체가 식별색
+  if (f.kind === 'none' || f.kind === 'ink' || f.kind === 'idtape') return m.color;   // 자연색 위에 인쇄 · 테이프
   return (g.color && !m.metal) ? g.color.hex : m.color;
 }
 function applyAppearance(g){
@@ -1369,6 +1563,7 @@ function applyAppearance(g){
   // 선택 강조는 재질 색을 바꾸지 않도록 흰빛만 살짝 더하고, 윤곽선을 강조색으로
   mt.emissive.set(isSel || state.hover === g ? 0xffffff : 0x000000);
   mt.emissiveIntensity = isSel ? 0.06 : 0.05;
+  if (mt.userData.pat) mt.userData.pat.cpColOn.value = code ? 0 : 1;
   mt.needsUpdate = true;
   if (isSel) g.lineMat.color.copy(accent); else g.lineMat.color.set(cssVar('--edge'));
   g.lineMat.opacity = isSel ? 0.95 : faded ? 0.04 : (isVoid ? 0.06 : 0.12);
@@ -1384,10 +1579,198 @@ function syncTheme(){
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', syncTheme);
 new MutationObserver(syncTheme).observe(document.documentElement, {attributes: true, attributeFilter: ['data-theme']});
 
+/* --- 표면 무늬 셰이더: 테이프 겹침 · 편조 · 소선 홈 · 끈 · 잉크 인쇄 · 재질 질감 ---
+   기하 형상은 그대로 두고, 면마다 실제 치수(mm) 좌표 aPat 로 무늬를 계산해 색 · 명암 · 법선을 바꾼다 */
+const PAT_FRAG = /* glsl */`
+uniform int cpForm; uniform int cpTex; uniform vec4 cpA; uniform vec4 cpB; uniform vec3 cpCol; uniform vec3 cpCol2;
+uniform float cpColOn; uniform float cpRelief; uniform sampler2D cpInk;
+varying vec4 vPat;
+float cpH = 0.0, cpCM = 0.0, cpShade = 1.0, cpR = 0.0;
+vec3 cpC = vec3(0.0);
+float cpHash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float cpNoise(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(cpHash(i), cpHash(i + vec2(1.0, 0.0)), f.x), mix(cpHash(i + vec2(0.0, 1.0)), cpHash(i + vec2(1.0, 1.0)), f.x), f.y); }
+// 선 (거리 d mm 가 반폭 w 이내) — 화면 크기에 맞춰 부드럽게
+float cpLine(float d, float w){ float a = fwidth(d) + 1e-4; return 1.0 - smoothstep(w, w + a * 1.5, abs(d)); }
+// 무늬 주기가 화소보다 작아지면 0 (깜박임 방지)
+float cpFade(float x){ return clamp(1.6 - fwidth(x) * 3.0, 0.0, 1.0); }
+vec3 cpPerturb(vec3 p, vec3 n, vec2 dH, float fd){
+  vec3 sx = normalize(dFdx(p)), sy = normalize(dFdy(p)), r1 = cross(sy, n), r2 = cross(n, sx);
+  float det = dot(sx, r1) * fd;
+  return normalize(abs(det) * n - sign(det) * (dH.x * r1 + dH.y * r2));
+}
+// 재질 질감 (a: 둘레 방향 mm, b: 길이 방향 mm)
+void cpMicro(float a, float b){
+  if (cpTex == 1){ float n = cpNoise(vec2(a * 0.06, b * 1.4)); cpH += (n - 0.5) * 0.0012; cpR += (n - 0.5) * 0.07; }
+  else if (cpTex == 2){ cpR -= 0.06; }
+  else if (cpTex == 3){ float wv = sin(a * 7.85) * sin(b * 7.85); float k = cpFade(a * 1.25);
+    cpH += 0.018 * wv * k; cpShade *= 1.0 - 0.10 * k * step(0.0, wv * sign(sin(a * 3.93 + b * 3.93))); }
+  else if (cpTex == 4){ float n = cpNoise(vec2(a, b) * 3.0) * 0.6 + cpNoise(vec2(a * 9.0, b * 2.5)) * 0.4;
+    cpH += (n - 0.5) * 0.03 * cpFade(a * 3.0); cpShade *= 0.9 + 0.2 * n; }
+  else if (cpTex == 5){ float n = cpNoise(vec2(a, b) * 2.2); cpR += (n - 0.5) * 0.5; cpShade *= 0.92 + 0.16 * n; }
+  else if (cpTex == 6){ float n = sin(b * 6.0 + cpNoise(vec2(a * 0.6, b * 0.6)) * 4.0); cpH += 0.012 * n * cpFade(b); cpShade *= 0.94 + 0.06 * n; }
+  else if (cpTex == 7){ float n = cpNoise(vec2(a * 0.25, b * 14.0)); cpH += (n - 0.5) * 0.012 * cpFade(b * 14.0); cpShade *= 0.95 + 0.08 * n; }
+}
+void cpEval(){
+  if (cpForm == 0 && cpTex == 0) return;
+  float kind = floor(vPat.z + 0.5);
+  if (kind > 1.5) return;                                       // 안쪽 벽면
+  if (kind < 0.5){                                              // 절단면
+    vec2 p = vPat.xy; float r = length(p);
+    if (cpForm == 3 && cpB.x > 0.5){                            // 압축 연선 단면: 소선 경계
+      float nL = cpB.x, r0 = vPat.w / (2.0 * nL - 1.0);
+      float kf = floor((r / r0 + 1.0) * 0.5), rb = r0 * (2.0 * floor((r / r0 - 1.0) * 0.5 + 0.5) + 1.0);
+      float ln = cpLine(r - rb, r0 * 0.05);
+      if (kf >= 1.0){
+        float nk = 6.0 * kf, c = atan(p.y, p.x) / 6.28318 * nk + 0.5 * mod(kf, 2.0);
+        float dc = (min(fract(c), 1.0 - fract(c))) * 6.28318 * r / nk;
+        ln = max(ln, cpLine(dc, r0 * 0.05));
+        cpShade *= 0.93 + 0.12 * cpHash(vec2(kf, floor(c)));
+      }
+      cpShade *= 1.0 - 0.6 * ln * cpFade(r / r0);
+    } else if (cpForm == 4){
+      float n = cpNoise(p * 4.0) * 0.6 + cpNoise(p * 13.0) * 0.4;
+      cpShade *= 0.78 + 0.3 * n;
+    }
+    return;
+  }
+  float u = vPat.x, v = vPat.y, per = max(vPat.w, 1e-3), s = u * per;
+  if (cpForm == 1){                                             // 테이프: 나선 감기 / 종첨
+    bool lng = cpA.w > 0.5;
+    float P = lng ? per : cpA.x, t = lng ? fract(u) : fract(v / cpA.x - cpA.z * u), x = t * P, z = cpA.y;
+    float th = cpB.y, k = lng ? 1.0 : cpFade(v / cpA.x);
+    float edge = cpLine(min(x, P - x), 0.09);
+    if (z > 0.0){                                               // 겹침: 한 겹 더 두꺼운 띠 + 위 테이프 가장자리 단차
+      float zl = z * P;
+      cpH = th * (1.0 - smoothstep(zl * 0.75, zl * 1.1, x)) * smoothstep(0.0, min(0.35, zl * 0.2), x);
+      cpShade *= (1.0 - 0.5 * edge * k) * (1.0 + 0.07 * (1.0 - smoothstep(0.0, zl * 0.5, x)) * k);
+      if (cpTex == 2 || cpTex == 7) cpShade *= mix(1.0, 0.9, (1.0 - smoothstep(zl * 0.9, zl * 1.05, x)) * k);
+      if (cpTex == 1) cpShade *= mix(1.0, 1.06, (1.0 - smoothstep(zl * 0.9, zl * 1.05, x)) * k);
+    } else if (z < 0.0){                                        // 간격: 아래층이 보이는 홈
+      float gl = -z * P, g = smoothstep(P - gl - 0.08, P - gl + 0.08, x);
+      cpH = -th * 1.5 * g;
+      cpShade *= mix(1.0, 0.42, g * k);
+      cpShade *= 1.0 - 0.3 * max(edge, cpLine(x - (P - gl), 0.05)) * k;
+    } else {                                                    // 맞대기: 가는 이음선
+      cpShade *= 1.0 - 0.55 * edge * k; cpH = -th * edge;
+    }
+    if (cpB.z > 0.5){ cpC = cpCol; cpCM = 1.0; }                // 색별 테이프
+    cpMicro(s, v);
+  } else if (cpForm == 2){                                      // 편조: 두 방향 띠가 2/2로 엇갈림
+    float N = cpA.x, F = cpB.x, a = N * (u - v / cpA.y), b = N * (u + v / cpA.y);
+    vec2 ia = floor(vec2(a, b)), f = fract(vec2(a, b)) - 0.5;
+    bool inA = abs(f.x) < F * 0.5, inB = abs(f.y) < F * 0.5, topA = mod(ia.x + ia.y, 4.0) < 2.0;
+    float k = cpFade(a), h = 0.0, sh = 1.0;
+    if (inA && (!inB || topA)){
+      float xa = f.x / (F * 0.5), bulge = sqrt(max(0.0, 1.0 - xa * xa)), wires = 0.5 + 0.5 * cos(6.28318 * (xa * 0.5 + 0.5) * cpA.z);
+      h = 0.11 * (0.45 + 0.55 * bulge) * (inB ? 1.0 : 0.82) + 0.012 * wires * bulge;
+      sh = (0.86 + 0.14 * cpHash(vec2(ia.x, 3.0))) * (0.8 + 0.2 * bulge) * (1.0 - 0.18 * (1.0 - wires) * cpFade(a * cpA.z));
+    } else if (inB){
+      float xb = f.y / (F * 0.5), bulge = sqrt(max(0.0, 1.0 - xb * xb)), wires = 0.5 + 0.5 * cos(6.28318 * (xb * 0.5 + 0.5) * cpA.z);
+      h = 0.11 * (0.45 + 0.55 * bulge) * (inA ? 1.0 : 0.82) + 0.012 * wires * bulge;
+      sh = (0.86 + 0.14 * cpHash(vec2(ia.y, 9.0))) * (0.8 + 0.2 * bulge) * (1.0 - 0.18 * (1.0 - wires) * cpFade(b * cpA.z));
+    } else { h = -0.05; sh = 0.3; }
+    cpH = h * k; cpShade *= mix(0.86, sh, k);
+  } else if (cpForm == 3){                                      // 소선 홈 (압축 · 일반 연선, 분할 도체)
+    float n = cpA.x, w = fract(n * (u - (cpA.y > 0.0 ? cpA.z * v / cpA.y : 0.0))), d = min(w, 1.0 - w), k = cpFade(n * u);
+    if (cpB.y > 0.5){ float c = 2.0 * w - 1.0; cpH = cpA.w * sqrt(max(0.0, 1.0 - c * c)) * k; cpShade *= mix(1.0, 0.72 + 0.28 * sqrt(max(0.0, 1.0 - c * c)), k); }
+    else { cpH = (-cpA.w * (1.0 - smoothstep(0.0, 0.16, d)) + cpA.w * 0.2 * sin(3.14159 * w)) * k;
+      cpShade *= 1.0 - 0.38 * cpLine(d * per / n, 0.035) * k; }
+    cpMicro(s, v);
+  } else if (cpForm == 4){                                      // 끈 (PP · 종이 · 난연 PP) 다발
+    float n = cpA.x, q = v + cpA.z * u * cpA.y, w = fract(n * (u - cpA.z * v / cpA.y)), k = cpFade(n * u);
+    float fib = cpNoise(vec2(w * 22.0, q * 1.6)) * 0.55 + cpNoise(vec2(w * 60.0, q * 0.5)) * 0.45;
+    cpH = (0.16 * sin(3.14159 * w) + 0.06 * fib) * k;
+    cpShade *= mix(0.92, (0.72 + 0.34 * fib) * (1.0 - 0.45 * cpLine(min(w, 1.0 - w) * per / n, 0.08)), k);
+  } else if (cpForm == 5){                                      // 잉크 인쇄 (길이 방향으로 반복)
+    float L = cpA.x, H = cpA.y, sp = cpA.z, x = mod(v, sp), m = 0.0;
+    for (int i = 0; i < 2; i++){
+      float dy = s - per * (0.25 + 0.5 * float(i)); dy -= per * floor(dy / per + 0.5);
+      if (abs(dy) < H * 0.5 && x < L) m = max(m, textureLod(cpInk, vec2(x / L, 0.5 - dy / H), 0.0).a);
+    }
+    cpC = cpCol2; cpCM = m * 0.95;
+  } else if (cpTex > 0){
+    cpMicro(s, v);
+  }
+}`;
+const NO_INK = new THREE.DataTexture(new Uint8Array(4), 1, 1); NO_INK.needsUpdate = true;
+function patternMaterial(){
+  const mt = new THREE.MeshPhysicalMaterial();
+  const U = {cpForm: {value: 0}, cpTex: {value: 0}, cpA: {value: new THREE.Vector4()}, cpB: {value: new THREE.Vector4()},
+    cpCol: {value: new THREE.Color()}, cpCol2: {value: new THREE.Color()}, cpColOn: {value: 1}, cpRelief: {value: 0}, cpInk: {value: NO_INK}};
+  mt.userData.pat = U;
+  mt.customProgramCacheKey = () => 'cable-pattern-1';
+  mt.onBeforeCompile = sh => {
+    Object.assign(sh.uniforms, U);
+    sh.vertexShader = 'attribute vec4 aPat;\nvarying vec4 vPat;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n  vPat = aPat;');
+    sh.fragmentShader = PAT_FRAG + '\n' + sh.fragmentShader
+      .replace('#include <color_fragment>', '#include <color_fragment>\n  cpEval();\n  if (cpColOn > 0.5) diffuseColor.rgb = mix(diffuseColor.rgb, cpC, cpCM);\n  diffuseColor.rgb *= cpShade;')
+      .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n  roughnessFactor = clamp(roughnessFactor + cpR * cpColOn, 0.04, 1.0);')
+      .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\n  { vec2 dH = vec2(dFdx(cpH), dFdy(cpH)) * cpRelief; float l = length(dH); if (l > 0.5) dH *= 0.5 / l;\n    normal = cpPerturb(-vViewPosition, normal, dH, faceDirection); }');
+  };
+  return mt;
+}
+// 구성요소의 외형 구조 → 셰이더 값
+function inkTexture(text, hex){
+  const cv = document.createElement('canvas'); cv.width = 256; cv.height = 64;
+  const c = cv.getContext('2d');
+  c.font = '700 46px "Sora","Gothic A1",sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = hex;
+  c.fillText(text, 128, 34);
+  const tx = new THREE.CanvasTexture(cv); tx.generateMipmaps = false; tx.minFilter = THREE.LinearFilter;
+  return tx;
+}
+function setPattern(g){
+  const U = g.mtl.userData.pat, f = formOf(g), mm = model.R * model.unit, S = model.iec;
+  const m = MAT[g.mat], mult = TWIST_MULT[state.twist] || 0;
+  let form = 0, A = [0, 0, 0, 0], B = [0, 0, 0, 0], col = baseColor(g), col2 = '#111111';
+  if (U.cpInk.value !== NO_INK){ U.cpInk.value.dispose(); U.cpInk.value = NO_INK; }
+  const ring = g.regions.map(r => asCircle(r.outer)).find(Boolean);
+  const Dmm = ring ? 2 * ring.r * model.unit : 2 * Math.sqrt(g.area / g.count / Math.PI) * model.unit;
+  if (g.comp === 'conductor' && !(g.dot && g.count > 1) && S.cond !== 'solid'){
+    // 소선 수 (표준 구성 근사) → 층 수 · 바깥층 가닥
+    const A1 = g.area / g.count * model.unit * model.unit, nW = A1 <= 25 ? 7 : A1 <= 120 ? 19 : A1 <= 300 ? 37 : A1 <= 630 ? 61 : 91;
+    const nL = {7: 2, 19: 3, 37: 4, 61: 5, 91: 6}[nW], per = Math.PI * Dmm;
+    const outer = S.cond === 'segment' ? Math.max(8, Math.round(per / (Dmm / (2 * nL - 1)) * 0.5)) : 6 * (nL - 1);
+    const lay = S.lay.cond * Dmm * (mult ? 1 / mult : 0);
+    form = 3; A = [S.cond === 'segment' || S.cond === 'sector' ? Math.max(6, Math.round(per / (Dmm / (2 * nL - 1)))) : outer, lay, 1, S.cond === 'round' ? 0.18 : 0.05];
+    B = [S.cond === 'round' ? 0 : nL, S.cond === 'round' ? 1 : 0, 0, 0];
+  } else if (f.kind === 'tape' || f.kind === 'idtape'){
+    const o = f.ov / 100, w = f.w;
+    let pitch = w, zone = 0;
+    if (f.wrap === 'over'){ pitch = w * (1 - Math.min(o, 0.9)); zone = Math.min(0.95, o / (1 - Math.min(o, 0.9))); }
+    else if (f.wrap === 'gap'){ pitch = w * (1 + o); zone = -o / (1 + o); }
+    else if (f.wrap === 'long') zone = Math.min(0.5, o);
+    const thick = g.comp === 'armour' ? 0.5 : TEX_OF[g.mat] === 1 ? 0.12 : 0.18;
+    form = 1; A = [pitch, zone, f.dir === 'S' ? -1 : 1, f.wrap === 'long' ? 1 : 0]; B = [w, thick, f.kind === 'idtape' ? 1 : 0, 0];
+    if (f.kind === 'idtape') col = idHex(f.col);
+    col2 = '#2A2D30';
+  } else if (f.kind === 'braid'){
+    const N = f.car / 2, alpha = 30 * D2R, pitch = Math.PI * Dmm / Math.tan(alpha), K = f.cov / 100;
+    form = 2; A = [N, pitch, 7, 0]; B = [1 - Math.sqrt(Math.max(0, 1 - K)), 0, 0, 0];
+  } else if (f.kind === 'fiber'){
+    const ci = conductorInfo(S), lay = ci && ci.layLen ? ci.layLen * model.unit / Math.max(mult, 0.34) : 200;
+    form = 4; A = [Math.max(6, Math.round(Math.PI * Dmm / 3.2)), lay, 1, 0];
+  } else if (f.kind === 'ink'){
+    const natural = MAT[g.mat].color, dark = new THREE.Color(natural).getHSL({}).l < 0.4;
+    const inkHex = f.col ? idHex(f.col) : dark ? '#F2F2EE' : '#16181A';
+    U.cpInk.value = inkTexture(f.text || '1', '#ffffff');
+    // 번호 인쇄: 글자 높이 ≈ 코어 지름의 20 %, 글자 길이의 2.4배 간격으로 이어 찍음
+    form = 5; const H = Math.max(1.6, Math.min(7, Dmm * 0.2)), Lt = H * 1.6 * Math.max(1, (f.text || '1').length * 0.55);
+    A = [Lt, H, Lt * 2.4, 0];
+    col2 = inkHex;
+  }
+  U.cpForm.value = form; U.cpTex.value = (form === 0 || form === 1 || form === 3) ? (TEX_OF[g.mat] || 0) : 0;
+  if (f.kind === 'interlock' || f.kind === 'corrH' || f.kind === 'corrA') U.cpTex.value = 1;
+  U.cpA.value.set(...A); U.cpB.value.set(...B);
+  U.cpCol.value.set(col); U.cpCol2.value.set(col2);
+  U.cpColOn.value = state.color === 'real' ? 1 : 0;
+  U.cpRelief.value = 2.2 / mm;                       // mm → 장면 단위 (요철 2.2배 강조)
+}
+
 function buildMeshes(){
   model.groups.forEach((g, i) => {
     g.pal = PALETTE[i % PALETTE.length];
-    g.mtl = new THREE.MeshPhysicalMaterial();
+    g.mtl = patternMaterial();
     g.lineMat = new THREE.LineBasicMaterial({transparent: true, opacity: 0.18});
     g.meshes = [];
   });
@@ -1401,10 +1784,15 @@ function rebuildGeometry(){
   cable.clear(); meshes = [];
   model.groups.forEach(g => { g.meshes = []; });
   model.regions.forEach(rg => { rg._tw = undefined; });
+  const mm = model.R * model.unit;
   for (const P of twistPlan()){
     if (P.rg._tw === undefined) P.rg._tw = P.tw;
     let r;
-    try { r = buildGeo(P.outer, P.holes, P.tw, P.g.target, P.internal); } catch (e) { console.warn(e); continue; }
+    try {
+      const f = formOf(P.g), ring = reliefRing(P);
+      r = ring && (f.kind === 'interlock' || f.kind === 'corrH' || f.kind === 'corrA') ? buildRelief(ring, P.g.target, f, mm)
+        : buildGeo(P.outer, P.holes, P.tw, P.g.target, P.internal, patFrame(P.outer, mm));
+    } catch (e) { console.warn(e); continue; }
     const mesh = new THREE.Mesh(r.geo, P.g.mtl);
     mesh.castShadow = true;
     mesh.userData = {g: P.g, rg: P.rg, tw: P.tw};
@@ -1415,22 +1803,43 @@ function rebuildGeometry(){
     cable.add(mesh); meshes.push(mesh); P.g.meshes.push(mesh);
   }
   state.selMesh = selRg ? meshes.find(m => m.userData.rg === selRg) || null : null;
+  model.groups.forEach(setPattern);
   applyAll();
 }
+// 굴곡 형상을 만들 수 있는 고리 (바깥 원 + 같은 중심의 안쪽 원 하나)
+function reliefRing(P){
+  if (P.tw || P.rg.holes.length !== 1) return null;
+  const o = asCircle(P.rg.outer), h = asCircle(P.rg.holes[0]);
+  if (!o || !h || Math.hypot(o.cx - h.cx, o.cy - h.cy) > model.R * 2e-3) return null;
+  const s = 1 / model.R, [ox, oy] = model.center;
+  return {cx: (o.cx - ox) * s, cy: (o.cy - oy) * s, ro: o.r * s, ri: h.r * s};
+}
 let rebuildTimer = 0;
-function scheduleRebuild(){ clearTimeout(rebuildTimer); rebuildTimer = setTimeout(() => { if (model){ rebuildGeometry(); renderInfo(); } }, 150); }
+function scheduleRebuild(){ clearTimeout(rebuildTimer); rebuildTimer = setTimeout(() => { if (model){ computeLengths(false); rebuildGeometry(); renderInfo(); } }, 150); }
 
 // 모드별 층 길이 (계단형: 안쪽 층일수록 길게 노출)
 const STRIP_BASE = 1.3;
 function stripStep(){ const n = model.nLevels; return n > 1 ? Math.min(0.72, (6.6 - STRIP_BASE) / (n - 1)) : 0; }
-function targetLen(g, mode){
+// 계단형에서 층마다 드러나는 폭의 비율: 인터록 · 주름 · 편조 · 금속 테이프 외장처럼 무늬가 큰 층은 더 길게
+function levelOffsets(){
+  const n = model.nLevels, w = new Array(n).fill(1);
+  for (const g of model.groups){
+    const k = formOf(g).kind, x = k === 'interlock' || k === 'corrH' || k === 'corrA' ? 2.4 : k === 'braid' ? 1.8 : k === 'tape' && g.comp === 'armour' ? 1.9 : k === 'tape' || k === 'idtape' ? 1.45 : 1;
+    w[g.level] = Math.max(w[g.level], x);
+  }
+  const sum = w.slice(0, n - 1).reduce((a, b) => a + b, 0) || 1, cum = new Array(n).fill(0);
+  for (let L = n - 2; L >= 0; L--) cum[L] = cum[L + 1] + w[L] * (n - 1) / sum;
+  return cum;
+}
+function targetLen(g, mode, cum){
   const n = model.nLevels, step = stripStep(), maxL = STRIP_BASE + step * (n - 1);
-  if (mode === 'strip') return STRIP_BASE + step * (n - 1 - g.level);
+  if (mode === 'strip') return STRIP_BASE + step * (cum || levelOffsets())[g.level];
   if (mode === 'full') return Math.max(maxL, 3);
   return 0.08;
 }
 function computeLengths(instant){
-  for (const g of model.groups){ g.target = targetLen(g, state.mode); if (instant || reduceMotion) g.len = g.target; }
+  const cum = levelOffsets();
+  for (const g of model.groups){ g.target = targetLen(g, state.mode, cum); if (instant || reduceMotion) g.len = g.target; }
 }
 
 /* --- 카메라 --- */
@@ -1639,7 +2048,7 @@ const STATUS_RANK = {fail: 4, warn: 3, pass: 2, info: 1, na: 0};
 const STATUS_TXT = {pass: '적합', fail: '부적합', warn: '확인 필요', info: '정보', na: '해당 없음'};
 const CHECK_COL = {fail: '#FF6B61', warn: '#E8B04B', pass: '#5FCB9A', none: '#5A6068'};
 const LAY_SEC = '연입률';
-const FILL_DEFAULT = {round: 0.76, compact: 0.90, segment: 0.90, solid: 1};   // 소선 미표현 도체의 점적률 가정값
+const FILL_DEFAULT = {round: 0.76, compact: 0.90, sector: 0.90, segment: 0.90, solid: 1};   // 소선 미표현 도체의 점적률 가정값
 const ge = (a, b) => a >= b - 5e-3;          // 도면 좌표 오차 0.005 mm 허용
 const fmtR = v => v >= 1 ? v.toFixed(3) : v.toPrecision(3);
 
@@ -1687,7 +2096,7 @@ function conductorInfo(S){
   const A = Adraw * fill;
   const par = one ? [...parents][0] : null, pc = par ? asCircle(par) : null;
   const mat = MAT[conds[0].mat];
-  const info = {cores, A, Adraw, fillUsed: fill, Acore: A / cores, stranded, segment: one && !stranded, nWires: stranded ? regs.length : 0, rho: mat.rho || null, dens: mat.dens, kLay: 1};
+  const info = {cores, A, Adraw, fillUsed: fill, Acore: A / cores, stranded, segment: one && !stranded, sector: cores >= 2 && regs.every(r => !asCircle(r.outer)), nWires: stranded ? regs.length : 0, rho: mat.rho || null, dens: mat.dens, kLay: 1};
   if (stranded){
     const cen = pc ? [pc.cx, pc.cy] : model.center;
     const ds = regs.map(r => ({r: Math.hypot(r.outer.cx - cen[0], r.outer.cy - cen[1]), d: 2 * r.outer.r, a: r.area})).sort((a, b) => a.r - b.r);
@@ -1751,8 +2160,8 @@ function iecAuto(m){
   }
   S.cond = 'compact'; S.fill = FILL_DEFAULT.compact;
   const ci = conductorInfo(S);
-  if (ci){ S.cond = ci.stranded ? 'round' : ci.segment ? 'segment' : 'compact'; S.fill = FILL_DEFAULT[S.cond]; }
-  S.condWhy = !ci ? '' : ci.stranded ? `도체: 소선 ${ci.nWires}가닥` : ci.segment ? '도체: 분할 도체' : '도체: 소선 미표현 → 압축 연선 가정';
+  if (ci){ S.cond = ci.stranded ? 'round' : ci.segment ? 'segment' : ci.sector ? 'sector' : 'compact'; S.fill = FILL_DEFAULT[S.cond]; }
+  S.condWhy = !ci ? '' : ci.stranded ? `도체: 소선 ${ci.nWires}가닥` : ci.segment ? '도체: 분할 도체' : ci.sector ? '도체: 부채꼴 단면 → 선형 압축' : '도체: 소선 미표현 → 압축 연선 가정';
   const sz = text.match(/(\d+(?:\.\d+)?)\s*(?:sq|㎟|mm2|mm²)(?![a-z])/i);
   if (sz){ S.size = +sz[1]; S.sizeWhy = `단면적: 도면 표기 ${sz[0]}`; }
   else if (ci){ const A = ci.Acore * m.unit * m.unit; S.size = IEC_SIZES.reduce((b, s) => Math.abs(s - A) < Math.abs(b - A) ? s : b); S.sizeWhy = `단면적: 도면 면적 ${fmt(A, 1)} mm²로 추정`; }
@@ -1793,7 +2202,8 @@ function evaluate(){
       add(sec, {title:'도체 금속 단면적', gids, status:'info',
         val:[...(ci.fillUsed < 1 ? [['도면 외곽', fmt(ci.Adraw / ci.cores * u * u, 1) + ' mm²']] : []), ['1심 금속', fmt(ci.Acore * u * u, 1) + ' mm²'], ['공칭 대비', fmt(ci.Acore * u * u / size * 100, 1) + ' %']],
         note: ci.stranded ? `소선 ${ci.nWires}가닥 합` : ci.fillUsed < 1 ? `외곽 면적 × 점적률 ${ci.fillUsed} (가정)` : '단선'});
-      const wrow = WIRES[size] && (S.cond === 'round' || S.cond === 'compact') ? WIRES[size][S.cond] : null;
+      const ct = S.cond === 'sector' ? 'compact' : S.cond;          // 선형 압축은 압축 연선 기준 (IEC 60228)
+      const wrow = WIRES[size] && (ct === 'round' || ct === 'compact') ? WIRES[size][ct] : null;
       const need = wrow ? wrow.value : null, wrefs = wrow ? [wrow.ref] : [];
       if (S.cond === 'solid') add(sec, {title:'도체 구조', gids, status:'info', val:[['구조','단선 (class 1)']]});
       else if (S.cond === 'segment') add(sec, {title:'최소 소선 수', gids, status:'info', val:[['구조','분할 도체']], note:'세그먼트 구성은 제조 사양 확인'});
@@ -1802,7 +2212,7 @@ function evaluate(){
       else if (!need) add(sec, {title:'최소 소선 수', gids, status:'warn', val:[['도면', ci.nWires + ' 가닥']],
         say:`소선 ${ci.nWires}가닥 — 기준값 없음 (비표준 단면적)`, fix:'설계 사양으로 확인'});
       else add(sec, {title:'최소 소선 수', gids, status: ci.nWires >= need ? 'pass' : 'fail', refs: wrefs, val:[['도면', ci.nWires + ' 가닥'], ['최소', need + ' 가닥']],
-        say:`소선 ${ci.nWires}가닥 — 최소 ${need}가닥 미달`, fix:`${need}가닥 이상으로 구성`, note: S.cond === 'round' ? '원형 비압축 연선' : '원형 압축 연선'});
+        say:`소선 ${ci.nWires}가닥 — 최소 ${need}가닥 미달`, fix:`${need}가닥 이상으로 구성`, note: S.cond === 'round' ? '원형 비압축 연선' : S.cond === 'sector' ? '선형 압축 연선' : '원형 압축 연선'});
       const lrow = R60228[size] && R60228[size][mats[0] === 'AL' ? 'AL' : 'CU'], lim = lrow ? lrow.value : null;
       if (okMat && ci.Rcable){
         const base = [['계산', fmtR(ci.Rcable) + ' Ω/km']];
@@ -2095,6 +2505,8 @@ function renderInfo(){
   else if (D.type === 'dot'){ big = bigNum(g.count > 1 ? '가닥 지름' : '지름', fmt(D.d, 2), 'mm') + (g.count > 1 ? bigNum('수량', g.count, '가닥') : ''); }
   else big = bigNum('단면적', fmt(aMM, 1), 'mm²') + bigNum('최대 폭', fmt(D.od, 1), 'mm');
   if (D.type !== 'shape') kv.push(['단면적', fmt(aMM, aMM < 10 ? 2 : 1) + ' mm²']);
+  const ftxt = formText(g);
+  if (ftxt && ftxt !== '압출') kv.unshift(['구조', ftxt]);
   if (g.count > 1 && D.type !== 'dot') kv.push(['수량', g.count + ' 개']);
   const wg = weights().get(g);
   if (wg) kv.push(['중량', fmt(wg, 1) + ' kg/km']);
@@ -2137,14 +2549,75 @@ function renderInfo(){
       <label for="ed-comp">구성요소<select id="ed-comp" class="select">${compOpts}</select></label>
       <label for="ed-mat">재질<select id="ed-mat" class="select">${matOpts}</select></label>
       ${g.source === 'guess' ? '<button type="button" class="btn sm" id="ed-ok">이 분류로 확정</button>' : ''}
-    </div></div>` : ''}`;
+    </div></div>
+    ${formEditorHTML(g)}` : ''}`;
   el.hidden = false;
   $('#info-close').onclick = () => select(null);
   if (design){
-    $('#ed-comp').onchange = e => { g.comp = e.target.value; g.mat = COMP[g.comp].mat; g.source = g.comp === 'unknown' ? 'none' : 'user'; refresh(); };
-    $('#ed-mat').onchange = e => { g.mat = e.target.value; if (g.comp !== 'unknown') g.source = 'user'; refresh(); };
+    $('#ed-comp').onchange = e => { g.comp = e.target.value; g.mat = COMP[g.comp].mat; g.source = g.comp === 'unknown' ? 'none' : 'user'; g.form = null; g._df = null; refresh(); };
+    $('#ed-mat').onchange = e => { g.mat = e.target.value; if (g.comp !== 'unknown') g.source = 'user'; g._df = null; refresh(); };
     const ok = $('#ed-ok'); if (ok) ok.onclick = () => { g.source = 'user'; refresh(); };
+    bindFormEditor(g);
   }
+}
+/* --- 외형 구조 편집 (설계 화면 정보 카드) --- */
+const FORM_MATS = {tape: ['PET','PS','PP','GLASS','NONWOVEN','WBTAPE','SEMI','MICA','PAPER','CU','TCU','AL','ALPET','STEEL','SS'],
+  braid: ['CU','TCU','AL'], fiber: ['PP','FRPP','PAPER'], interlock: ['AL','STEEL','SS'], wires: null, plain: null};
+function formEditorHTML(g){
+  const opt = (list, cur) => list.map(([k, v]) => `<option value="${esc(k)}"${String(k) === String(cur) ? ' selected' : ''}>${esc(v)}</option>`).join('');
+  const num = (id, label, val, step) => `<label for="${id}">${label}<input id="${id}" class="num" type="number" min="0" step="${step || 1}" value="${val}"></label>`;
+  if (g.comp === 'conductor') return `<div class="info-sec"><h3>외형 구조</h3><div class="edit">
+      <label for="fm-cond">도체 형태<select id="fm-cond" class="select">${opt(COND_FORMS, model.iec.cond)}</select></label></div></div>`;
+  const kinds = FORM_KINDS[g.comp];
+  if (!kinds) return '';
+  const f = formOf(g), rows = [];
+  rows.push(`<label for="fm-kind">${g.comp === 'insulation' ? '선심 식별' : '형태'}<select id="fm-kind" class="select">${opt(kinds.map(k => [k, FORM_KO[k]]), f.kind)}</select></label>`);
+  const mats = FORM_MATS[f.kind === 'idtape' ? 'none' : f.kind === 'corrH' || f.kind === 'corrA' ? 'interlock' : f.kind];
+  if (mats) rows.push(`<label for="fm-mat">${f.kind === 'tape' ? '테이프 종류' : f.kind === 'fiber' ? '끈 종류' : '재질'}<select id="fm-mat" class="select">`
+    + opt(mats.map(k => [k, f.kind === 'tape' ? TAPE_KO[k] : f.kind === 'fiber' ? STRING_KO[k] : MAT[k].ko]), g.mat) + '</select></label>');
+  if (f.kind === 'tape' || f.kind === 'idtape'){
+    rows.push(`<label for="fm-wrap">감기 방식<select id="fm-wrap" class="select">${opt(Object.entries(WRAP_KO), f.wrap)}</select></label>`);
+    if (f.wrap !== 'butt') rows.push(num('fm-ov', f.wrap === 'over' ? '중첩률 %' : f.wrap === 'gap' ? '간격 % (폭 대비)' : '겹침 % (둘레 대비)', f.ov));
+    if (f.wrap !== 'long') rows.push(num('fm-w', '테이프 폭 mm', f.w, 0.5), `<label for="fm-dir">감기 방향<select id="fm-dir" class="select">${opt([['Z','Z (오른쪽)'],['S','S (왼쪽)']], f.dir)}</select></label>`);
+  }
+  if (f.kind === 'braid') rows.push(`<label for="fm-car">캐리어 수<select id="fm-car" class="select">${opt([16,24,32,48].map(n => [n, n + ' 캐리어']), f.car)}</select></label>`, num('fm-cov', '피복률 %', f.cov));
+  if (f.kind === 'mb' || f.kind === 'idtape' || f.kind === 'ink')
+    rows.push(`<label for="fm-col">${f.kind === 'ink' ? '잉크 색' : '식별 색'}<select id="fm-col" class="select">`
+      + (f.kind === 'ink' ? '<option value="">기본 (흑 · 백)</option>' : '') + opt(ID_COLORS.map(([n]) => [n, n]), f.col || '') + '</select></label>');
+  if (f.kind === 'ink') rows.push(`<label for="fm-text">인쇄 문구<input id="fm-text" class="num" value="${esc(f.text || '')}" maxlength="12"></label>`);
+  if (f.kind === 'interlock' || f.kind === 'corrH' || f.kind === 'corrA') rows.push(num('fm-pitch', '피치 mm (0 = 자동)', f.pitch, 0.5), num('fm-depth', '깊이 mm (0 = 자동)', f.depth, 0.1));
+  return `<div class="info-sec"><h3>외형 구조</h3><div class="edit">${rows.join('')}</div></div>`;
+}
+function bindFormEditor(g){
+  const cond = $('#fm-cond');
+  if (cond){ cond.onchange = e => { const S = model.iec; S.cond = e.target.value; S.fill = FILL_DEFAULT[S.cond]; S.condWhy = ''; $('#cf-spec').checked = false; refresh(); }; return; }
+  const set = patch => { g.form = {...formOf(g), ...patch}; g._df = null; refresh(); };
+  const on = (id, fn) => { const el = $(id); if (el) el.onchange = e => fn(e.target.value); };
+  on('#fm-kind', v => { g.form = defaultFormFor(g, v); g._df = null; refresh(); });
+  on('#fm-mat', v => { g.mat = v; if (g.comp !== 'unknown') g.source = 'user'; if (!g.form) g._df = null; refresh(); });
+  on('#fm-wrap', v => set({wrap: v, ov: v === 'long' ? 12 : v === 'gap' ? 30 : v === 'over' ? 25 : 0}));
+  on('#fm-ov', v => set({ov: Math.max(0, Math.min(90, +v || 0))}));
+  on('#fm-w', v => set({w: Math.max(2, +v || 2)}));
+  on('#fm-dir', v => set({dir: v}));
+  on('#fm-car', v => set({car: +v}));
+  on('#fm-cov', v => set({cov: Math.max(20, Math.min(98, +v || 85))}));
+  on('#fm-col', v => set({col: v || undefined}));
+  on('#fm-text', v => set({text: String(v).slice(0, 12) || '1'}));
+  on('#fm-pitch', v => set({pitch: Math.max(0, +v || 0)}));
+  on('#fm-depth', v => set({depth: Math.max(0, +v || 0)}));
+}
+// 형태를 바꿀 때: 그 형태의 기본값으로 새로 채움
+function defaultFormFor(g, kind){
+  const saved = g.form; g.form = null; g._df = null;
+  const hint = g.hint; g.hint = (hint || '') + ' ' + {tape: 'tape', idtape: '색별', ink: 'ink', braid: 'braid', interlock: 'interlock', corrH: 'corrugated', corrA: 'corrugated annular', fiber: '', plain: 'extruded', wires: '', mb: '', none: ''}[kind];
+  const d = defaultForm(g); g.hint = hint; g.form = saved;
+  d.kind = kind;
+  if ((kind === 'mb' || kind === 'idtape') && !d.col) d.col = ID_ORDER[0];
+  if (kind === 'tape' || kind === 'idtape'){ d.wrap = d.wrap || 'over'; d.ov = d.ov ?? 25; d.w = d.w || 30; d.dir = d.dir || 'Z'; }
+  if (kind === 'braid'){ d.car = d.car || 24; d.cov = d.cov || 85; }
+  if (kind === 'ink') d.text = d.text || '1';
+  if (kind === 'interlock' || kind === 'corrH' || kind === 'corrA'){ d.pitch = d.pitch || 0; d.depth = d.depth || 0; }
+  return d;
 }
 function refresh(){ renderReviewSetup(); runReview(); renderSummary(); scheduleRebuild(); }
 
@@ -2179,7 +2652,7 @@ function renderReviewSetup(){
     + `<option value="out"${S.cls === 'out' ? ' selected' : ''}>적용 범위 밖 (검토 안 함)</option>`;
   const sizes = IEC_SIZES.includes(S.size) || !S.size ? IEC_SIZES : [...IEC_SIZES, S.size].sort((a, b) => a - b);
   const sizeOpts = sizes.map(s => `<option value="${s}"${s === S.size ? ' selected' : ''}>${s} mm²${IEC_SIZES.includes(s) ? '' : ' (비표준)'}</option>`).join('');
-  const conds = [['round','원형 비압축 연선'], ['compact','원형 압축 연선'], ['segment','분할(밀리켄) 도체'], ['solid','단선 (class 1)']];
+  const conds = COND_FORMS;
   $('#rv-set').innerHTML = `
     <label for="rv-cls">적용 등급<select id="rv-cls" class="select">${clsOpts}</select></label>
     <label for="rv-size">공칭 단면적<select id="rv-size" class="select">${sizeOpts}</select></label>
@@ -2280,7 +2753,7 @@ function setMode(mode){
   document.querySelectorAll('[data-mode]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === mode)));
   if (!model) return;
   computeLengths(false);
-  if (state.twist !== 'off') rebuildGeometry();
+  rebuildGeometry();                                  // 꼬임 · 표면 무늬는 길이에 맞춰 형상에 새겨 둔다
   if (mode === 'section') setSpin(false);
   goTo(viewFor(mode, prev !== 'section' && mode !== 'section'));
 }
@@ -2364,7 +2837,10 @@ function applyReport(m, d){
   }
   for (const o of d.overrides || []){
     const g = m.groups.find(x => x.key === o.key);
-    if (g && COMP[o.comp] && MAT[o.mat]){ g.comp = o.comp; g.mat = o.mat; g.source = 'user'; }
+    if (g && COMP[o.comp] && MAT[o.mat]){
+      g.comp = o.comp; g.mat = o.mat; g.source = 'user'; g._df = null;
+      if (o.form && typeof o.form === 'object' && FORM_KO[o.form.kind]) g.form = {...o.form};
+    }
   }
   m.meta = d.meta || null;
   m.publicId = ID_RE.test(d.id || '') ? d.id : null;
@@ -2383,7 +2859,7 @@ function snapshot(m, meta){
   const S = m.iec;
   return {v: 1, id: m.publicId || null, sample: m.sampleId || null, dxf: m.sampleId ? null : m.text, name: m.name, sub: m.sub, unit: m.unit,
     iec: {cls: S.cls, size: S.size, cond: S.cond, fill: S.fill, kAssumed: S.kAssumed, lay: {cond: S.lay.cond, core: S.lay.core, wire: {...S.lay.wire}}},
-    overrides: m.groups.map(g => ({key: g.key, comp: g.comp, mat: g.mat})), meta};
+    overrides: m.groups.map(g => FORM_KINDS[g.comp] ? {key: g.key, comp: g.comp, mat: g.mat, form: {...formOf(g)}} : {key: g.key, comp: g.comp, mat: g.mat}), meta};
 }
 function setView(v){
   view = v;
@@ -2491,7 +2967,7 @@ async function publishReport(){
 }
 
 /* --- 설계자 확인 카드 --- */
-const COND_TXT = {round: '원형 연선', compact: '압축 연선', segment: '분할 도체', solid: '단선'};
+const COND_TXT = {round: '원형 연선', compact: '압축 연선', sector: '선형 압축', segment: '분할 도체', solid: '단선'};
 function renderConfirm(){
   if (!model || model !== workModel) return;
   const guess = model.groups.filter(g => g.source === 'guess').length, none = model.groups.filter(g => g.source === 'none').length;
@@ -2885,21 +3361,58 @@ function sampleHV(){
   }
   w.circle('CONDUCTOR_BINDER_SEMICON', 0, 0, 21.0).circle('SEMICON_INNER', 0, 0, 23.0).circle('INSULATION_XLPE', 0, 0, 40.0)
    .circle('SEMICON_OUTER', 0, 0, 41.5).circle('WB_TAPE_SEMICON', 0, 0, 42.5);
-  const waves = 30, n = waves * 16, inner = [], outer = [];
-  for (let k = 0; k < n; k++){
-    const a = k / n * TAU, m = 45.2 + 1.4 * Math.sin(waves * a);
-    inner.push([(m - 1.1) * Math.cos(a), (m - 1.1) * Math.sin(a)]);
-    outer.push([(m + 1.1) * Math.cos(a), (m + 1.1) * Math.sin(a)]);
-  }
-  w.lwpoly('GAP_AIR', inner, true).lwpoly('SHEATH_AL_CORRUGATED', outer, true);
+  // 알루미늄 주름 시스: 단면은 원 (주름은 길이 방향 → 외형 구조 '주름 (나선형)')
+  w.circle('GAP_AIR', 0, 0, 43.0).circle('SHEATH_AL_CORRUGATED', 0, 0, 47.6);
   w.circle('JACKET_PE', 0, 0, 52.7).circle('GRAPHITE_COATING', 0, 0, 52.9);
   w.text('TITLE', -45, -62, 4, '154kV XLPE 1C 1200SQ');
+  return w.done();
+}
+// 부채꼴(섹터) 윤곽: 칸막이 선 · 바깥 원으로 자른 영역의 등고선을 모서리 둥글게 (lev 0 도체, lev t 절연)
+function sectorPts(phi, R, s0, lev, k, n = 120){
+  const smax = (a, b) => { const h = Math.max(k - Math.abs(a - b), 0) / k; return Math.max(a, b) + h * h * k * 0.25; };
+  const q = Math.PI / 4, nU = [-Math.sin(phi + q), Math.cos(phi + q)], nL = [Math.sin(phi - q), -Math.cos(phi - q)];
+  const sdf = (x, y) => smax(smax(Math.hypot(x, y) - R, x * nU[0] + y * nU[1] + s0), x * nL[0] + y * nL[1] + s0);
+  const c0 = [0.62 * R * Math.cos(phi), 0.62 * R * Math.sin(phi)], pts = [];
+  for (let i = 0; i < n; i++){
+    const a = i / n * TAU, dx = Math.cos(a), dy = Math.sin(a);
+    let lo = 0, hi = 2 * R;
+    for (let it = 0; it < 40; it++){ const mid = (lo + hi) / 2; if (sdf(c0[0] + dx * mid, c0[1] + dy * mid) < lev) lo = mid; else hi = mid; }
+    pts.push([c0[0] + dx * lo, c0[1] + dy * lo]);
+  }
+  return pts;
+}
+// 0.6/1kV 4심 저압 케이블 (선형 압축 도체 · 마스터배치 식별 · PP끈 · 글라스 테이프 · 강대 간격감기 외장)
+function sampleLV4(){
+  const w = dxfWriter(), R = 13.25, t = 1.1, s0 = t + 0.15, k = 1.6;
+  ['갈색', '흑색', '회색', '청색'].forEach((col, i) => {
+    const phi = Math.PI / 4 + i * Math.PI / 2;
+    w.lwpoly('도체_선형압축', sectorPts(phi, R, s0, 0, k), true);
+    w.lwpoly('절연체_XLPE_' + col, sectorPts(phi, R, s0, t, k), true);
+  });
+  w.circle('개재물_PP끈', 0, 0, 14.7).circle('바인더_글라스_테이프', 0, 0, 14.9).circle('내부시스_PVC', 0, 0, 16.5)
+   .circle('외장_강대_간격감기', 0, 0, 17.5).circle('시스_PVC', 0, 0, 19.8);
+  w.text('TITLE', -18, -25, 1.8, '0.6/1kV 4C 95SQ 선형압축 강대외장');
+  return w.done();
+}
+// 6/10kV 3심 고압 케이블 (압축 도체 · 색별 테이프 · 동테이프 차폐 · PP끈 · 인터록 외장)
+function sampleMV3(){
+  const w = dxfWriter(), rp = 10.6;
+  [['적색', 90], ['백색', 210], ['청색', 330]].forEach(([col, deg]) => {
+    const x = rp * Math.cos(deg * D2R), y = rp * Math.sin(deg * D2R);
+    w.circle('CONDUCTOR_CU_COMPACT', x, y, 4.15).circle('SEMICON_INNER', x, y, 4.75).circle('INSULATION_XLPE', x, y, 8.15)
+     .circle('SEMICON_OUTER_색별테이프_' + col, x, y, 8.95).circle('SCREEN_CU_TAPE', x, y, 9.12);
+  });
+  w.circle('개재물_PP끈', 0, 0, 19.95).circle('BINDER_TAPE_NONWOVEN', 0, 0, 20.15).circle('BEDDING_PVC', 0, 0, 21.6)
+   .circle('ARMOUR_INTERLOCK_AL', 0, 0, 24.1).circle('SHEATH_PVC', 0, 0, 26.9);
+  w.text('TITLE', -24, -32, 2.2, '6/10kV 3C 50SQ CV 동테이프차폐 인터록');
   return w.done();
 }
 const SAMPLES = [
   {id: 'cncv', label: '22.9kV CNCV-W 1C 325㎟', sub: '예제 · 배전용 동심중성선 케이블', make: sampleCNCV},
   {id: 'tfr', label: '0.6/1kV TFR-CV 3C 25㎟', sub: '예제 · 3심 저압 케이블 (한글 레이어)', make: sampleTFR},
-  {id: 'hv', label: '154kV XLPE 1C 1200㎟', sub: '예제 · 밀리켄 도체 · Al 주름 시스', make: sampleHV}
+  {id: 'hv', label: '154kV XLPE 1C 1200㎟', sub: '예제 · 밀리켄 도체 · Al 주름 시스', make: sampleHV},
+  {id: 'lv4', label: '0.6/1kV 4C 95㎟ 선형압축 · 강대', sub: '예제 · 섹터 도체 · PP끈 · 강대 간격감기', make: sampleLV4},
+  {id: 'mv3', label: '6/10kV 3C 50㎟ 동테이프 · 인터록', sub: '예제 · 색별 테이프 · 동테이프 중첩 · 인터록 외장', make: sampleMV3}
 ];
 
 /* =====================================================================
@@ -2978,6 +3491,7 @@ async function boot(){
   // 자동 검사용 (tests/test.html 이 ?test 로 열 때만)
   if (new URLSearchParams(location.search).has('test')) window.__cableTest = {
     SAMPLES, dxfWriter, parseModel, snapshot, modelFromReport, stdStats, stdOk,
+    formText(m, g){ const prev = model; model = m; try { return formText(g); } finally { model = prev; } },
     judge(m){ const prev = model; model = m; try { evaluate(); } finally { model = prev; } return m.checks; }
   };
   $('#loading').remove();
