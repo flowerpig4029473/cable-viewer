@@ -196,6 +196,10 @@ run().then(({results, current}) => {
   $('#sum').innerHTML = `<b class="bad">실행 실패</b> · ${esc(e.message)}`;
   $('#out').textContent = JSON.stringify({ok: false, error: e.message});
   document.title = 'ERROR';
+}).finally(() => {
+  // Mac 자동 검사(tools/run-tests.py)는 ?send 로 열어 결과를 검사 서버로 돌려받는다
+  if (new URLSearchParams(location.search).has('send'))
+    fetch('/__test-result', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: $('#out').textContent}).catch(() => {});
 });
 </script>
 </body>

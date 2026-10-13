@@ -22,6 +22,9 @@
 | `tools/기준결과_갱신.bat` | 지금 판정 결과를 기준 결과로 저장 |
 | `tests/test.html` | 자동 검사 페이지 |
 | `tests/expected.json` | 기준 결과 (예제 3종의 판정 내용) |
+| `미리보기.command` · `serve.py` | Mac 용 미리보기 (더블클릭) · 로컬 서버 |
+| `tools/자동검사.command` · `tools/기준결과_갱신.command` | Mac 용 자동 검사 · 기준 결과 갱신 (`tools/run-tests.py`) |
+| `tools/publish-push.sh` · `tools/GitHub_올리기.command` | Mac 용 게시 자동 업로드 · 직접 올리기 |
 
 ## 대표 모델 5종
 
@@ -94,12 +97,15 @@ GitHub에 올릴 때마다 `.github/workflows/pages.yml`이 공개 뷰어를 새
 - 도면 단위 인식, 절연 부족 도면의 부적합 표시, 잘못된 파일의 오류 안내
 
 실패하면 무엇이 어떻게 바뀌었는지 줄마다 표시된다.
+
+Mac에서는 `tools/자동검사.command`를 더블클릭한다. 기본 브라우저(Safari)에 검사 탭이 열리고, 결과는 터미널 창에 같은 형식으로 나온다. 검사가 끝날 때까지 그 탭은 닫지 않는다. 기준 결과 갱신은 `tools/기준결과_갱신.command`.
 의도한 변경(예: 기준값을 원문대로 수정)이면 `tools/기준결과_갱신.bat`으로 기준 결과를 새로 저장한다.
 미리보기 서버를 켠 상태에서 `http://localhost:8765/tests/test.html`을 열어도 같은 결과를 볼 수 있다.
 
 ## 미리보기
 
-`미리보기.bat`을 더블클릭하면 브라우저가 열린다. 창을 닫으면 종료된다.
+`미리보기.bat`(Mac은 `미리보기.command`)을 더블클릭하면 브라우저가 열린다. 창을 닫으면 종료된다.
+Mac에서 게시하면 `tools/publish-push.sh`가 GitHub에 올린다 (기록: `$TMPDIR/cable-viewer-publish.log`). 안 올라갔으면 `tools/GitHub_올리기.command`.
 `index.html`을 직접 열면 `report.json`을 못 읽어 보고 화면이 비어 보인다.
 
 ## 변경 기록 (git)
