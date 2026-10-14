@@ -28,7 +28,7 @@
 </main>
 <iframe id="app" src="/?test" title="뷰어"></iframe>
 <script>
-// 예제 도면 · 보고 데이터로 판정 결과를 뽑아 tests/expected.json(기준 결과)과 비교한다.
+// 케이블 모델 · 보고 데이터로 판정 결과를 뽑아 tests/expected.json(기준 결과)과 비교한다.
 // ?update 로 열면 비교 대신 현재 결과를 #out 에 출력 (기준 결과 갱신용).
 const UPDATE = new URLSearchParams(location.search).has('update');
 const $ = s => document.querySelector(s);
@@ -73,7 +73,7 @@ function diff(a, b, path = '', out = []){
 
 function sampleModel(T, id){
   const s = T.SAMPLES.find(x => x.id === id);
-  const m = T.parseModel(s.make(), s.label, s.sub);
+  const m = T.parseModel(s.make(), s.label, s.sub, s.spec);
   if (m.error) throw new Error(m.error);
   m.sampleId = id;
   return m;
@@ -101,7 +101,7 @@ async function run(){
     return golden('std');
   });
 
-  for (const s of T.SAMPLES) test(`예제 판정 · ${s.label}`, () => {
+  for (const s of T.SAMPLES) test(`모델 판정 · ${s.label}`, () => {
     const m = sampleModel(T, s.id);
     current['sample:' + s.id] = digest(m, T.judge(m), T);
     return golden('sample:' + s.id);
@@ -126,17 +126,17 @@ async function run(){
   });
 
   test('외형 구조 변경 → 저장 → 다시 불러오기', () => {
-    const m = sampleModel(T, 'mv3');
-    const scr = m.groups.find(g => g.comp === 'mscreen'), ins = m.groups.find(g => g.comp === 'insulation');
-    scr.form = {kind: 'braid', car: 32, cov: 90};
-    ins.form = {kind: 'ink', text: 'L1'};
+    const m = sampleModel(T, T.SAMPLES[0].id);
+    const ins = m.groups.find(g => g.comp === 'insulation');
+    ins.form = {kind: 'ink', text: 'L1', col: '흑색'};
     T.judge(m);
     const want = m.groups.map(g => T.formText(m, g));
     const m2 = T.modelFromReport(JSON.parse(JSON.stringify(T.snapshot(m, {designer: '검사'}))));
     if (!m2) return ['불러오기 실패'];
     T.judge(m2);
     const errs = diff(want, m2.groups.map(g => T.formText(m2, g)), 'forms');
-    if (!/편조 · 32 캐리어 · 피복률 90/.test(T.formText(m2, m2.groups.find(g => g.comp === 'mscreen')))) errs.push('편조 설정이 저장되지 않음');
+    if (!/잉크 인쇄 “L1” · 흑색/.test(T.formText(m2, m2.groups.find(g => g.comp === 'insulation')))) errs.push('잉크 인쇄 설정이 저장되지 않음');
+    if (!m2.spec || m2.spec.steps.length !== T.SAMPLES[0].spec.steps.length) errs.push('설계 공정이 보고에 저장되지 않음');
     return errs;
   });
 
@@ -148,7 +148,7 @@ async function run(){
   });
 
   test('도면 단위 인식 (inch 도면 → 25.4)', () => {
-    const txt = T.SAMPLES[1].make().replace('$INSUNITS\n70\n4', '$INSUNITS\n70\n1');
+    const txt = T.SAMPLES[0].make().replace('$INSUNITS\n70\n4', '$INSUNITS\n70\n1');
     const m = T.parseModel(txt, 'inch', '');
     if (m.error) return [m.error];
     return m.unit === 25.4 ? [] : [`단위 ${m.unit} (기대 25.4)`];
@@ -166,6 +166,35 @@ async function run(){
     if (m.error) return [m.error];
     const C = T.judge(m), bad = C.filter(c => c.status === 'fail' && /절연/.test(c.title));
     return bad.length ? [] : ['절연 관련 부적합 항목이 나오지 않음: ' + C.filter(c => /절연/.test(c.title)).map(c => `${c.title}=${c.status}`).join(', ')];
+  });
+
+  test('저압 EPR 절연 두께 (표 7)', () => {
+    // 0.6/1 kV 1심 25 mm² EPR: 공칭 1.2 mm (표 7 · 25 및 35)
+    const w = T.dxfWriter();
+    w.circle('도체', 0, 0, 2.9).circle('절연체_EPR', 0, 0, 4.1).circle('시스_PVC', 0, 0, 5.6).text('TITLE', -6, -9, 0.8, '0.6/1kV EPR 1C 25SQ');
+    const m = T.parseModel(w.done(), 'epr', '');
+    if (m.error) return [m.error];
+    const c = T.judge(m).find(c => c.title === '절연 공칭 두께');
+    if (!c) return ['절연 공칭 두께 항목 없음'];
+    return c.status === 'pass' && /1\.2/.test(c.val.map(v => v.join(' ')).join()) ? [] : [`${c.status} · ${c.val.map(v => v.join(' ')).join(', ')}`];
+  });
+
+  test('가상 직경 (부속서 A) · 3심 25 mm² 시스', () => {
+    // dL 5.6 → Dc 5.6 + 2×0.9 = 7.4 → Df 2.16 × 7.4 = 16.0 → 0.035×16 + 1 = 1.6 → 다심 하한 1.8
+    const w = T.dxfWriter(), off = 4.55;
+    [90, 210, 330].forEach(deg => {
+      const x = off * Math.cos(deg * Math.PI / 180), y = off * Math.sin(deg * Math.PI / 180);
+      w.circle('도체', x, y, 3.0).circle('절연체_XLPE', x, y, 3.9);
+    });
+    w.circle('개재물_PP', 0, 0, 8.5).circle('시스_PVC', 0, 0, 10.4).text('TITLE', -12, -15, 1.4, '0.6/1kV CV 3C 25SQ');
+    const m = T.parseModel(w.done(), '3c', '');
+    if (m.error) return [m.error];
+    const C = T.judge(m), f = C.find(c => c.title === '가상 직경 (부속서 A)'), sn = C.find(c => c.title === '시스 공칭 두께');
+    const errs = [];
+    const fv = f ? f.val.map(v => v.join(' ')).join(', ') : '';
+    if (!f || !/dL 5[.,]6/.test(fv) || !/Dc 7[.,]4/.test(fv) || !/Df 16[.,]0/.test(fv)) errs.push('가상 직경: ' + (fv || '없음'));
+    if (!sn || !/D 16[.,]0 mm, 가상 직경/.test(sn.note) || !/≥ 1[.,]8/.test(sn.val.map(v => v.join(' ')).join())) errs.push('시스 기준: ' + (sn ? sn.note : '없음'));
+    return errs;
   });
 
   test('잘못된 파일 → 오류 안내', () => {

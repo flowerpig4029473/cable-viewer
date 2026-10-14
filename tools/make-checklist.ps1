@@ -36,7 +36,7 @@ $out = foreach ($it in $json.items) {
       '일치(O/X)' = ''
       '확인자'    = $(if ($r.verifiedBy) { $r.verifiedBy } else { '' })
       '확인일'    = $(if ($r.verifiedAt) { $r.verifiedAt } else { '' })
-      '비고'      = $(if ($r.note) { $r.note } else { '' })
+      '비고'      = $(if ($r.note) { $r.note } elseif ($it.checked) { $it.checked } else { '' })
     }
   }
 }

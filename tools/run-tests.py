@@ -25,6 +25,7 @@ def main():
     ap = argparse.ArgumentParser(description='케이블 뷰어 자동 검사')
     ap.add_argument('--update', action='store_true', help='지금 결과를 기준 결과로 저장')
     ap.add_argument('--port', type=int, default=8799)
+    ap.add_argument('--no-open', action='store_true', help='브라우저를 열지 않고 주소만 표시 (다른 브라우저에서 직접 열 때)')
     args = ap.parse_args()
 
     got, done = {}, threading.Event()
@@ -45,8 +46,11 @@ def main():
     try:
         url = 'http://localhost:%d/tests/test.html?send%s' % (server.server_address[1], '&update' if args.update else '')
         print('검사 중… (%s)' % url)
-        print('브라우저에 검사 탭이 열립니다. 끝날 때까지 그 탭을 닫지 마세요.', flush=True)
-        subprocess.run(['open', url], check=False)
+        if args.no_open:
+            print('위 주소를 브라우저에서 여세요.', flush=True)
+        else:
+            print('브라우저에 검사 탭이 열립니다. 끝날 때까지 그 탭을 닫지 마세요.', flush=True)
+            subprocess.run(['open', url], check=False)
         if not done.wait(TIMEOUT):
             print('검사 페이지 결과를 %d초 안에 받지 못했습니다.' % TIMEOUT)
             return 2

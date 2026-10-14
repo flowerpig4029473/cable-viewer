@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "updated": "2026-09-27",
+  "updated": "2026-10-14",
   "statusText": {
     "verified": "규격 원문 대조 완료",
     "crosschecked": "공개 자료와 일치 · 원문 미대조",
@@ -11,9 +11,10 @@
       "key": "classes", "title": "전압 등급 · 최고 전압 Um", "unit": "kV",
       "source": "IEC 60502-1:2021 · IEC 60502-2:2014", "ref": "적용 범위 · 정격 전압 U0/U와 최고 전압 Um",
       "status": "crosschecked",
+      "checked": "저압 2행: K 60502-1:2006 4.1 · 표 1 대조",
       "rows": [
-        {"id": "0.6/1",  "cond": "U0/U 0.6/1 kV",  "std": "IEC 60502-1", "value": 1.2},
-        {"id": "1.8/3",  "cond": "U0/U 1.8/3 kV",  "std": "IEC 60502-1", "value": 3.6},
+        {"id": "0.6/1",  "cond": "U0/U 0.6/1 kV",  "std": "IEC 60502-1", "value": 1.2, "status": "verified"},
+        {"id": "1.8/3",  "cond": "U0/U 1.8/3 kV",  "std": "IEC 60502-1", "value": 3.6, "status": "verified"},
         {"id": "3.6/6",  "cond": "U0/U 3.6/6 kV",  "std": "IEC 60502-2", "value": 7.2},
         {"id": "6/10",   "cond": "U0/U 6/10 kV",   "std": "IEC 60502-2", "value": 12},
         {"id": "8.7/15", "cond": "U0/U 8.7/15 kV", "std": "IEC 60502-2", "value": 17.5},
@@ -37,9 +38,10 @@
       "key": "minSize", "title": "등급별 최소 도체 단면적", "unit": "mm²",
       "source": "IEC 60502-1:2021 · IEC 60502-2:2014", "ref": "절연 두께 표의 적용 단면적 범위",
       "status": "unverified",
+      "checked": "저압 2행: K 60502-1:2006 표 5 · 6 · 7의 최소 단면적 대조",
       "rows": [
-        {"id": "0.6/1",  "cond": "0.6/1 kV",  "value": 1.5},
-        {"id": "1.8/3",  "cond": "1.8/3 kV",  "value": 10},
+        {"id": "0.6/1",  "cond": "0.6/1 kV",  "value": 1.5, "status": "verified"},
+        {"id": "1.8/3",  "cond": "1.8/3 kV",  "value": 10, "status": "verified"},
         {"id": "3.6/6",  "cond": "3.6/6 kV",  "value": 10},
         {"id": "6/10",   "cond": "6/10 kV",   "value": 16},
         {"id": "8.7/15", "cond": "8.7/15 kV", "value": 25},
@@ -51,9 +53,10 @@
       "key": "testVoltage", "title": "정기 시험 상용주파 전압 (5분)", "unit": "kV",
       "source": "IEC 60502-1:2021 · IEC 60502-2:2014", "ref": "정기 시험 · 전압 시험",
       "status": "unverified",
+      "checked": "저압 2행: K 60502-1:2006 15.3.4 · 표 11 (2.5 U0 + 2 kV) 대조",
       "rows": [
-        {"id": "0.6/1",  "cond": "0.6/1 kV",  "value": 3.5},
-        {"id": "1.8/3",  "cond": "1.8/3 kV",  "value": 6.5},
+        {"id": "0.6/1",  "cond": "0.6/1 kV",  "value": 3.5, "status": "verified"},
+        {"id": "1.8/3",  "cond": "1.8/3 kV",  "value": 6.5, "status": "verified"},
         {"id": "3.6/6",  "cond": "3.6/6 kV",  "value": 12.5},
         {"id": "6/10",   "cond": "6/10 kV",   "value": 21},
         {"id": "8.7/15", "cond": "8.7/15 kV", "value": 30.5},
@@ -63,24 +66,25 @@
     },
     {
       "key": "lvInsulation", "title": "저압 절연 공칭 두께", "unit": "mm",
-      "source": "IEC 60502-1:2021", "ref": "PVC · XLPE 절연 공칭 두께 표 (단면적 구간별)",
-      "status": "unverified",
+      "source": "K 60502-1:2006 (IEC 60502-1:2004 번역)", "ref": "표 5 · 6 · 7 절연체 공칭 두께 (단면적 구간별)",
+      "status": "verified",
+      "checked": "K 60502-1:2006 표 5 (PVC) · 표 6 (XLPE) · 표 7 (EPR) 대조",
       "note": "maxSize는 구간 상한(mm²). 이전 구간 상한 초과 ~ 이 값 이하에 적용",
       "rows": [
-        {"id": "XLPE|0.6/1|16",   "mat": "XLPE", "cls": "0.6/1", "maxSize": 16,   "value": 0.7, "status": "crosschecked"},
-        {"id": "XLPE|0.6/1|35",   "mat": "XLPE", "cls": "0.6/1", "maxSize": 35,   "value": 0.9, "status": "crosschecked"},
-        {"id": "XLPE|0.6/1|50",   "mat": "XLPE", "cls": "0.6/1", "maxSize": 50,   "value": 1.0, "status": "crosschecked"},
-        {"id": "XLPE|0.6/1|95",   "mat": "XLPE", "cls": "0.6/1", "maxSize": 95,   "value": 1.1, "status": "crosschecked"},
-        {"id": "XLPE|0.6/1|120",  "mat": "XLPE", "cls": "0.6/1", "maxSize": 120,  "value": 1.2, "status": "crosschecked"},
-        {"id": "XLPE|0.6/1|150",  "mat": "XLPE", "cls": "0.6/1", "maxSize": 150,  "value": 1.4, "status": "crosschecked"},
-        {"id": "XLPE|0.6/1|185",  "mat": "XLPE", "cls": "0.6/1", "maxSize": 185,  "value": 1.6, "status": "crosschecked"},
-        {"id": "XLPE|0.6/1|240",  "mat": "XLPE", "cls": "0.6/1", "maxSize": 240,  "value": 1.7, "status": "crosschecked"},
-        {"id": "XLPE|0.6/1|300",  "mat": "XLPE", "cls": "0.6/1", "maxSize": 300,  "value": 1.8, "status": "crosschecked"},
-        {"id": "XLPE|0.6/1|400",  "mat": "XLPE", "cls": "0.6/1", "maxSize": 400,  "value": 2.0, "status": "crosschecked"},
-        {"id": "XLPE|0.6/1|500",  "mat": "XLPE", "cls": "0.6/1", "maxSize": 500,  "value": 2.2, "status": "crosschecked"},
-        {"id": "XLPE|0.6/1|630",  "mat": "XLPE", "cls": "0.6/1", "maxSize": 630,  "value": 2.4, "status": "crosschecked"},
-        {"id": "XLPE|0.6/1|800",  "mat": "XLPE", "cls": "0.6/1", "maxSize": 800,  "value": 2.6, "status": "crosschecked"},
-        {"id": "XLPE|0.6/1|1000", "mat": "XLPE", "cls": "0.6/1", "maxSize": 1000, "value": 2.8, "status": "crosschecked"},
+        {"id": "XLPE|0.6/1|16",   "mat": "XLPE", "cls": "0.6/1", "maxSize": 16,   "value": 0.7},
+        {"id": "XLPE|0.6/1|35",   "mat": "XLPE", "cls": "0.6/1", "maxSize": 35,   "value": 0.9},
+        {"id": "XLPE|0.6/1|50",   "mat": "XLPE", "cls": "0.6/1", "maxSize": 50,   "value": 1.0},
+        {"id": "XLPE|0.6/1|95",   "mat": "XLPE", "cls": "0.6/1", "maxSize": 95,   "value": 1.1},
+        {"id": "XLPE|0.6/1|120",  "mat": "XLPE", "cls": "0.6/1", "maxSize": 120,  "value": 1.2},
+        {"id": "XLPE|0.6/1|150",  "mat": "XLPE", "cls": "0.6/1", "maxSize": 150,  "value": 1.4},
+        {"id": "XLPE|0.6/1|185",  "mat": "XLPE", "cls": "0.6/1", "maxSize": 185,  "value": 1.6},
+        {"id": "XLPE|0.6/1|240",  "mat": "XLPE", "cls": "0.6/1", "maxSize": 240,  "value": 1.7},
+        {"id": "XLPE|0.6/1|300",  "mat": "XLPE", "cls": "0.6/1", "maxSize": 300,  "value": 1.8},
+        {"id": "XLPE|0.6/1|400",  "mat": "XLPE", "cls": "0.6/1", "maxSize": 400,  "value": 2.0},
+        {"id": "XLPE|0.6/1|500",  "mat": "XLPE", "cls": "0.6/1", "maxSize": 500,  "value": 2.2},
+        {"id": "XLPE|0.6/1|630",  "mat": "XLPE", "cls": "0.6/1", "maxSize": 630,  "value": 2.4},
+        {"id": "XLPE|0.6/1|800",  "mat": "XLPE", "cls": "0.6/1", "maxSize": 800,  "value": 2.6},
+        {"id": "XLPE|0.6/1|1000", "mat": "XLPE", "cls": "0.6/1", "maxSize": 1000, "value": 2.8},
         {"id": "XLPE|1.8/3|400",  "mat": "XLPE", "cls": "1.8/3", "maxSize": 400,  "value": 2.0},
         {"id": "XLPE|1.8/3|500",  "mat": "XLPE", "cls": "1.8/3", "maxSize": 500,  "value": 2.2},
         {"id": "XLPE|1.8/3|630",  "mat": "XLPE", "cls": "1.8/3", "maxSize": 630,  "value": 2.4},
@@ -102,7 +106,23 @@
         {"id": "PVC|1.8/3|300",   "mat": "PVC",  "cls": "1.8/3", "maxSize": 300,  "value": 2.4},
         {"id": "PVC|1.8/3|400",   "mat": "PVC",  "cls": "1.8/3", "maxSize": 400,  "value": 2.6},
         {"id": "PVC|1.8/3|800",   "mat": "PVC",  "cls": "1.8/3", "maxSize": 800,  "value": 2.8},
-        {"id": "PVC|1.8/3|1000",  "mat": "PVC",  "cls": "1.8/3", "maxSize": 1000, "value": 3.0}
+        {"id": "PVC|1.8/3|1000",  "mat": "PVC",  "cls": "1.8/3", "maxSize": 1000, "value": 3.0},
+        {"id": "EPR|0.6/1|16",      "mat": "EPR",  "cls": "0.6/1", "maxSize": 16,   "value": 1.0},
+        {"id": "EPR|0.6/1|35",      "mat": "EPR",  "cls": "0.6/1", "maxSize": 35,   "value": 1.2},
+        {"id": "EPR|0.6/1|70",      "mat": "EPR",  "cls": "0.6/1", "maxSize": 70,   "value": 1.4},
+        {"id": "EPR|0.6/1|120",     "mat": "EPR",  "cls": "0.6/1", "maxSize": 120,  "value": 1.6},
+        {"id": "EPR|0.6/1|150",     "mat": "EPR",  "cls": "0.6/1", "maxSize": 150,  "value": 1.8},
+        {"id": "EPR|0.6/1|185",     "mat": "EPR",  "cls": "0.6/1", "maxSize": 185,  "value": 2.0},
+        {"id": "EPR|0.6/1|240",     "mat": "EPR",  "cls": "0.6/1", "maxSize": 240,  "value": 2.2},
+        {"id": "EPR|0.6/1|300",     "mat": "EPR",  "cls": "0.6/1", "maxSize": 300,  "value": 2.4},
+        {"id": "EPR|0.6/1|400",     "mat": "EPR",  "cls": "0.6/1", "maxSize": 400,  "value": 2.6},
+        {"id": "EPR|0.6/1|800",     "mat": "EPR",  "cls": "0.6/1", "maxSize": 800,  "value": 2.8},
+        {"id": "EPR|0.6/1|1000",    "mat": "EPR",  "cls": "0.6/1", "maxSize": 1000, "value": 3.0},
+        {"id": "EPR|1.8/3|70",      "mat": "EPR",  "cls": "1.8/3", "maxSize": 70,   "value": 2.2},
+        {"id": "EPR|1.8/3|300",     "mat": "EPR",  "cls": "1.8/3", "maxSize": 300,  "value": 2.4},
+        {"id": "EPR|1.8/3|400",     "mat": "EPR",  "cls": "1.8/3", "maxSize": 400,  "value": 2.6},
+        {"id": "EPR|1.8/3|800",     "mat": "EPR",  "cls": "1.8/3", "maxSize": 800,  "value": 2.8},
+        {"id": "EPR|1.8/3|1000",    "mat": "EPR",  "cls": "1.8/3", "maxSize": 1000, "value": 3.0}
       ]
     },
     {
@@ -210,7 +230,8 @@
     {
       "key": "insulationMin", "title": "절연 최소 두께 규칙 (공칭 × 계수 − 차감)", "unit": "",
       "source": "IEC 60502-1:2021 · IEC 60502-2:2014", "ref": "절연 두께 측정 · 판정 조건",
-      "status": "unverified",
+      "status": "verified",
+      "checked": "K 60502-1:2006 16.5.2 (tm ≥ 0.9 tn − 0.1) 대조",
       "rows": [
         {"id": "factor", "cond": "계수", "value": 0.9},
         {"id": "minus",  "cond": "차감 (mm)", "value": 0.1}
@@ -219,7 +240,8 @@
     {
       "key": "sheathNominal", "title": "외부 시스 공칭 두께 식 (a·D + b, 하한)", "unit": "",
       "source": "IEC 60502-1:2021 · IEC 60502-2:2014", "ref": "비금속 외부 시스 공칭 두께 · D는 시스 바로 아래 가상 직경",
-      "status": "crosschecked",
+      "status": "verified",
+      "checked": "K 60502-1:2006 13.3 대조 (D는 부속서 A 가상 직경, 0.1 mm 수치맺음). 금속층 바로 위 시스의 하한 1.8은 IEC 원문 기준 — 번역본 13.3 문장이 불명확",
       "note": "하한 1.4/1.8 mm 적용 조건은 판(edition)마다 표현이 다름. 뷰어는 다심 또는 금속층 위 시스에 1.8 적용",
       "rows": [
         {"id": "a",          "cond": "직경 계수 a", "value": 0.035},
@@ -232,6 +254,7 @@
       "key": "sheathMin", "title": "외부 시스 최소 두께 규칙", "unit": "",
       "source": "IEC 60502-1:2021 · IEC 60502-2:2014", "ref": "시스 두께 측정 · 판정 조건",
       "status": "unverified",
+      "checked": "K 60502-1:2006 16.5.3 번역본은 본문 '80 %', 식 '0.85 tn − 0.2'로 서로 다르고 IEC 원문(매끈한 면 0.85 tn − 0.1, 금속층 위 0.80 tn − 0.2)과도 다름 — 원문 확인 필요",
       "rows": [
         {"id": "smoothFactor",    "cond": "매끈한 면 위 · 계수", "value": 0.85},
         {"id": "smoothMinus",     "cond": "매끈한 면 위 · 차감 (mm)", "value": 0.1},
@@ -243,6 +266,7 @@
       "key": "wireGap", "title": "동심선 · 차폐선 간격 한도", "unit": "mm",
       "source": "IEC 60502-1:2021 · IEC 60502-2:2014", "ref": "동심 도체 · 금속 차폐 (동선)",
       "status": "unverified",
+      "checked": "K 60502-1(저압)은 9.2 · 10.2에서 국가 규정에 맡김 → 저압 판정에는 참고로만 표시. 값은 IEC 60502-2 기준",
       "rows": [
         {"id": "avg", "cond": "평균 간격 최대", "value": 4},
         {"id": "max", "cond": "개별 간격 최대", "value": 8}
@@ -251,7 +275,8 @@
     {
       "key": "bedding", "title": "압출 내부 피복 두께", "unit": "mm",
       "source": "IEC 60502-1:2021 · IEC 60502-2:2014", "ref": "내부 피복 · 하부 가상 직경별 두께 표",
-      "status": "unverified",
+      "status": "verified",
+      "checked": "K 60502-1:2006 7.1.3 · 표 8 대조 (가상 연합 바깥지름 기준)",
       "note": "maxD는 하부 직경 구간 상한(mm), null은 그 이상",
       "rows": [
         {"id": "<=25", "maxD": 25,   "value": 1.0},
@@ -265,7 +290,8 @@
     {
       "key": "armourWire", "title": "원형 외장선 공칭 지름", "unit": "mm",
       "source": "IEC 60502-1:2021 · IEC 60502-2:2014", "ref": "외장 · 하부 가상 직경별 선 지름 표",
-      "status": "unverified",
+      "status": "verified",
+      "checked": "K 60502-1:2006 12.5 · 표 9 대조 (가상 외장 하경 기준)",
       "rows": [
         {"id": "<=10", "maxD": 10,   "value": 0.8},
         {"id": "<=15", "maxD": 15,   "value": 1.25},
@@ -278,7 +304,8 @@
     {
       "key": "armourTape", "title": "강대 외장 공칭 두께 (1장)", "unit": "mm",
       "source": "IEC 60502-1:2021 · IEC 60502-2:2014", "ref": "외장 · 하부 가상 직경별 강대 두께 표",
-      "status": "unverified",
+      "status": "verified",
+      "checked": "K 60502-1:2006 12.5 · 표 10 (강 · 아연도금 강 열) 대조. 알루미늄 테이프 열은 미내장",
       "rows": [
         {"id": "<=30", "maxD": 30,   "value": 0.2},
         {"id": "<=70", "maxD": 70,   "value": 0.5},
@@ -288,7 +315,8 @@
     {
       "key": "maxTemp", "title": "도체 최고 허용온도", "unit": "°C",
       "source": "IEC 60502-1:2021 · IEC 60502-2:2014", "ref": "절연 재료별 최고 도체 온도",
-      "status": "unverified",
+      "status": "verified",
+      "checked": "K 60502-1:2006 4.2 · 표 3 대조",
       "rows": [
         {"id": "XLPE|normal",     "cond": "XLPE 상시",              "value": 90},
         {"id": "XLPE|short",      "cond": "XLPE 단락",              "value": 250},
@@ -297,6 +325,141 @@
         {"id": "PVC|normal",      "cond": "PVC 상시",               "value": 70},
         {"id": "PVC|short|<=300", "cond": "PVC 단락 · 300 mm² 이하", "value": 160},
         {"id": "PVC|short|>300",  "cond": "PVC 단락 · 300 mm² 초과", "value": 140}
+      ]
+    },
+    {
+      "key": "fictConductor", "title": "가상 계산 · 도체 가상 바깥지름 dL", "unit": "mm",
+      "source": "K 60502-1:2006 (IEC 60502-1:2004 번역)", "ref": "부속서 A.2.1 · 표 A.1",
+      "status": "verified",
+      "checked": "K 60502-1:2006 표 A.1 대조",
+      "note": "표 값은 √(4S/π)를 0.1 mm로 수치맺음한 것과 같음 — 표에 없는 단면적은 같은 식으로 계산",
+      "rows": [
+        {"id": "1.5",   "size": 1.5,   "value": 1.4},
+        {"id": "2.5",   "size": 2.5,   "value": 1.8},
+        {"id": "4",     "size": 4,     "value": 2.3},
+        {"id": "6",     "size": 6,     "value": 2.8},
+        {"id": "10",    "size": 10,    "value": 3.6},
+        {"id": "16",    "size": 16,    "value": 4.5},
+        {"id": "25",    "size": 25,    "value": 5.6},
+        {"id": "35",    "size": 35,    "value": 6.7},
+        {"id": "50",    "size": 50,    "value": 8.0},
+        {"id": "70",    "size": 70,    "value": 9.4},
+        {"id": "95",    "size": 95,    "value": 11.0},
+        {"id": "120",   "size": 120,   "value": 12.4},
+        {"id": "150",   "size": 150,   "value": 13.8},
+        {"id": "185",   "size": 185,   "value": 15.3},
+        {"id": "240",   "size": 240,   "value": 17.5},
+        {"id": "300",   "size": 300,   "value": 19.5},
+        {"id": "400",   "size": 400,   "value": 22.6},
+        {"id": "500",   "size": 500,   "value": 25.2},
+        {"id": "630",   "size": 630,   "value": 28.3},
+        {"id": "800",   "size": 800,   "value": 31.9},
+        {"id": "1000",  "size": 1000,  "value": 35.7}
+      ]
+    },
+    {
+      "key": "layupFactor", "title": "가상 계산 · 심선 연합계수 k", "unit": "",
+      "source": "K 60502-1:2006 (IEC 60502-1:2004 번역)", "ref": "부속서 A.2.3 · 표 A.2 (단일 층 연합 a 행 제외)",
+      "status": "verified",
+      "checked": "K 60502-1:2006 표 A.2 대조",
+      "rows": [
+        {"id": "2",   "cores": 2,   "cond": "2심", "value": 2.00},
+        {"id": "3",   "cores": 3,   "cond": "3심", "value": 2.16},
+        {"id": "4",   "cores": 4,   "cond": "4심", "value": 2.42},
+        {"id": "5",   "cores": 5,   "cond": "5심", "value": 2.70},
+        {"id": "6",   "cores": 6,   "cond": "6심", "value": 3.00},
+        {"id": "7",   "cores": 7,   "cond": "7심", "value": 3.00},
+        {"id": "8",   "cores": 8,   "cond": "8심", "value": 3.45},
+        {"id": "9",   "cores": 9,   "cond": "9심", "value": 3.80},
+        {"id": "10",  "cores": 10,  "cond": "10심", "value": 4.00},
+        {"id": "11",  "cores": 11,  "cond": "11심", "value": 4.00},
+        {"id": "12",  "cores": 12,  "cond": "12심", "value": 4.16},
+        {"id": "13",  "cores": 13,  "cond": "13심", "value": 4.41},
+        {"id": "14",  "cores": 14,  "cond": "14심", "value": 4.41},
+        {"id": "15",  "cores": 15,  "cond": "15심", "value": 4.70},
+        {"id": "16",  "cores": 16,  "cond": "16심", "value": 4.70},
+        {"id": "17",  "cores": 17,  "cond": "17심", "value": 5.00},
+        {"id": "18",  "cores": 18,  "cond": "18심", "value": 5.00},
+        {"id": "19",  "cores": 19,  "cond": "19심", "value": 5.00},
+        {"id": "20",  "cores": 20,  "cond": "20심", "value": 5.33},
+        {"id": "21",  "cores": 21,  "cond": "21심", "value": 5.33},
+        {"id": "22",  "cores": 22,  "cond": "22심", "value": 5.67},
+        {"id": "23",  "cores": 23,  "cond": "23심", "value": 5.67},
+        {"id": "24",  "cores": 24,  "cond": "24심", "value": 6.00},
+        {"id": "25",  "cores": 25,  "cond": "25심", "value": 6.00},
+        {"id": "26",  "cores": 26,  "cond": "26심", "value": 6.00},
+        {"id": "27",  "cores": 27,  "cond": "27심", "value": 6.15},
+        {"id": "28",  "cores": 28,  "cond": "28심", "value": 6.41},
+        {"id": "29",  "cores": 29,  "cond": "29심", "value": 6.41},
+        {"id": "30",  "cores": 30,  "cond": "30심", "value": 6.41},
+        {"id": "31",  "cores": 31,  "cond": "31심", "value": 6.70},
+        {"id": "32",  "cores": 32,  "cond": "32심", "value": 6.70},
+        {"id": "33",  "cores": 33,  "cond": "33심", "value": 6.70},
+        {"id": "34",  "cores": 34,  "cond": "34심", "value": 7.00},
+        {"id": "35",  "cores": 35,  "cond": "35심", "value": 7.00},
+        {"id": "36",  "cores": 36,  "cond": "36심", "value": 7.00},
+        {"id": "37",  "cores": 37,  "cond": "37심", "value": 7.00},
+        {"id": "38",  "cores": 38,  "cond": "38심", "value": 7.33},
+        {"id": "39",  "cores": 39,  "cond": "39심", "value": 7.33},
+        {"id": "40",  "cores": 40,  "cond": "40심", "value": 7.33},
+        {"id": "41",  "cores": 41,  "cond": "41심", "value": 7.67},
+        {"id": "42",  "cores": 42,  "cond": "42심", "value": 7.67},
+        {"id": "43",  "cores": 43,  "cond": "43심", "value": 7.67},
+        {"id": "44",  "cores": 44,  "cond": "44심", "value": 8.00},
+        {"id": "45",  "cores": 45,  "cond": "45심", "value": 8.00},
+        {"id": "46",  "cores": 46,  "cond": "46심", "value": 8.00},
+        {"id": "47",  "cores": 47,  "cond": "47심", "value": 8.00},
+        {"id": "48",  "cores": 48,  "cond": "48심", "value": 8.15},
+        {"id": "52",  "cores": 52,  "cond": "52심", "value": 8.41},
+        {"id": "61",  "cores": 61,  "cond": "61심", "value": 9.00}
+      ]
+    },
+    {
+      "key": "fictInnerCover", "title": "가상 계산 · 내부 피복 가상 두께 tB", "unit": "mm",
+      "source": "K 60502-1:2006 (IEC 60502-1:2004 번역)", "ref": "부속서 A.2.4",
+      "status": "verified",
+      "checked": "K 60502-1:2006 A.2.4 대조",
+      "rows": [
+        {"id": "small", "cond": "연합 가상 지름 Df 40 mm 이하", "value": 0.4},
+        {"id": "large", "cond": "연합 가상 지름 Df 40 mm 초과", "value": 0.6}
+      ]
+    },
+    {
+      "key": "fictScreen", "title": "가상 계산 · 동심 도체 · 금속 차폐의 바깥지름 증가", "unit": "mm",
+      "source": "K 60502-1:2006 (IEC 60502-1:2004 번역)", "ref": "부속서 A.2.5 · 표 A.3 (두 값 사이면 큰 쪽)",
+      "status": "verified",
+      "checked": "K 60502-1:2006 표 A.3 대조",
+      "rows": [
+        {"id": "1.5",  "maxArea": 1.5,  "cond": "단면적 1.5 mm² 이하", "value": 0.5},
+        {"id": "2.5",  "maxArea": 2.5,  "cond": "단면적 2.5 mm² 이하", "value": 0.5},
+        {"id": "4",    "maxArea": 4,    "cond": "단면적 4 mm² 이하", "value": 0.5},
+        {"id": "6",    "maxArea": 6,    "cond": "단면적 6 mm² 이하", "value": 0.6},
+        {"id": "10",   "maxArea": 10,   "cond": "단면적 10 mm² 이하", "value": 0.8},
+        {"id": "16",   "maxArea": 16,   "cond": "단면적 16 mm² 이하", "value": 1.1},
+        {"id": "25",   "maxArea": 25,   "cond": "단면적 25 mm² 이하", "value": 1.2},
+        {"id": "35",   "maxArea": 35,   "cond": "단면적 35 mm² 이하", "value": 1.4},
+        {"id": "50",   "maxArea": 50,   "cond": "단면적 50 mm² 이하", "value": 1.7},
+        {"id": "70",   "maxArea": 70,   "cond": "단면적 70 mm² 이하", "value": 2.0},
+        {"id": "95",   "maxArea": 95,   "cond": "단면적 95 mm² 이하", "value": 2.4},
+        {"id": "120",  "maxArea": 120,  "cond": "단면적 120 mm² 이하", "value": 2.7},
+        {"id": "150",  "maxArea": 150,  "cond": "단면적 150 mm² 이하", "value": 3.0},
+        {"id": "185",  "maxArea": 185,  "cond": "단면적 185 mm² 이하", "value": 4.0},
+        {"id": "240",  "maxArea": 240,  "cond": "단면적 240 mm² 이하", "value": 5.0},
+        {"id": "300",  "maxArea": 300,  "cond": "단면적 300 mm² 이하", "value": 6.0}
+      ]
+    },
+    {
+      "key": "sheathTemp", "title": "시스 혼합물별 최고 도체 온도 (상시)", "unit": "°C",
+      "source": "K 60502-1:2006 (IEC 60502-1:2004 번역)", "ref": "4.3 · 표 4 (절연의 상시 최고 온도 이상이어야 함)",
+      "status": "verified",
+      "checked": "K 60502-1:2006 표 4 대조",
+      "rows": [
+        {"id": "ST1", "cond": "PVC ST1", "value": 80},
+        {"id": "ST2", "cond": "PVC ST2", "value": 90},
+        {"id": "ST3", "cond": "PE ST3", "value": 80},
+        {"id": "ST7", "cond": "PE ST7", "value": 90},
+        {"id": "ST8", "cond": "할로겐 프리 ST8", "value": 90},
+        {"id": "SE1", "cond": "고무 SE1", "value": 85}
       ]
     }
   ]

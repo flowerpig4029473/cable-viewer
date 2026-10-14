@@ -190,6 +190,8 @@ select.mini:hover{background-color:var(--fill-2)}
 .kv dt{color:var(--ink-3)}
 .kv dd{margin:0;text-align:right;font-variant-numeric:tabular-nums;color:var(--ink);font-weight:500}
 .kv dd.txt{font-weight:400}
+.step-h{margin:12px 0 6px;font-size:12px;font-weight:600;color:var(--ink-2)}
+.step-h:first-of-type{margin-top:0}
 .big{display:flex;gap:22px;margin-bottom:12px}
 .big div span{display:block;font-size:12px;color:var(--ink-3)}
 .big div b{font-family:var(--display);font-size:28px;font-weight:600;letter-spacing:-.025em;line-height:1.1;font-variant-numeric:tabular-nums}
@@ -451,7 +453,7 @@ button.ck.fail:hover{background:var(--danger-soft);box-shadow:0 0 0 1px var(--da
       <button type="button" data-view="design" aria-pressed="false">설계</button>
     </div>
     <div class="tb-actions design-only">
-      <select id="sample" class="select" aria-label="예제 케이블"></select>
+      <select id="sample" class="select" aria-label="케이블 모델"></select>
       <button class="btn primary" id="openBtn" type="button">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M8 11V2.5M4.5 6 8 2.5 11.5 6M2.5 10.5v3h11v-3"/></svg>
         DXF 불러오기
@@ -1771,12 +1773,13 @@ function setPattern(g){
   const ring = g.regions.map(r => asCircle(r.outer)).find(Boolean);
   const Dmm = ring ? 2 * ring.r * model.unit : 2 * Math.sqrt(g.area / g.count / Math.PI) * model.unit;
   if (g.comp === 'conductor' && !(g.dot && g.count > 1) && S.cond !== 'solid'){
-    // 소선 수 (표준 구성 근사) → 층 수 · 바깥층 가닥
-    const A1 = g.area / g.count * model.unit * model.unit, nW = A1 <= 25 ? 7 : A1 <= 120 ? 19 : A1 <= 300 ? 37 : A1 <= 630 ? 61 : 91;
-    const nL = {7: 2, 19: 3, 37: 4, 61: 5, 91: 6}[nW], per = Math.PI * Dmm;
+    // 소선 수 (설계 공정 값, 없으면 표준 구성 근사) → 층 수 · 바깥층 가닥
+    const sp = model.spec && specConductor(model.spec);
+    const A1 = g.area / g.count * model.unit * model.unit, nW = sp && sp.n ? sp.n : A1 <= 25 ? 7 : A1 <= 120 ? 19 : A1 <= 300 ? 37 : A1 <= 630 ? 61 : 91;
+    const nL = specLayers(nW), per = Math.PI * Dmm;
     const outer = S.cond === 'segment' ? Math.max(8, Math.round(per / (Dmm / (2 * nL - 1)) * 0.5)) : 6 * (nL - 1);
     const lay = S.lay.cond * Dmm * (mult ? 1 / mult : 0);
-    form = 3; A = [S.cond === 'segment' || S.cond === 'sector' ? Math.max(6, Math.round(per / (Dmm / (2 * nL - 1)))) : outer, lay, 1, S.cond === 'round' ? 0.18 : 0.05];
+    form = 3; A = [S.cond === 'segment' || S.cond === 'sector' ? Math.max(6, Math.round(per / (Dmm / (2 * nL - 1)))) : outer, lay, S.lay.dir === 'S' ? -1 : 1, S.cond === 'round' ? 0.18 : 0.05];
     B = [S.cond === 'round' ? 0 : nL, S.cond === 'round' ? 1 : 0, 0, 0];
   } else if (f.kind === 'tape' || f.kind === 'idtape'){
     const o = f.ov / 100, w = f.w;
@@ -2033,6 +2036,7 @@ new ResizeObserver(resize).observe(stageEl);
    판정은 어떤 값을 썼는지(ref = "항목:행 id")를 함께 기록해 화면에 확인 상태를 표시한다. */
 let STD = null;
 let CLASSES = {}, IEC_SIZES = [], R60228 = {}, WIRES = {}, T_LV = {}, T_BED = [], T_ARM_WIRE = [], T_ARM_TAPE = [], RULE = {}, TEMP = {};
+let FICT_DL = {}, LAYUP = {}, FICT_IN = {}, FICT_SCR = [], SHEATH_T = {};     // 부속서 A 가상 계산 · 표 4 시스 온도
 const STD_ROWS = new Map();                       // "항목:행 id" → {item, row, status}
 const STD_STATUS_TXT = {verified: '규격 원문 대조 완료', crosschecked: '공개 자료와 일치 · 원문 미대조', unverified: '원문 대조 필요'};
 async function loadStd(){
@@ -2068,6 +2072,12 @@ async function loadStd(){
   }
   TEMP = {};
   for (const r of rows('maxTemp')) TEMP[r.id] = {value: r.value, ref: `maxTemp:${r.id}`};
+  FICT_DL = {}; LAYUP = {}; FICT_IN = {}; SHEATH_T = {};
+  for (const r of rows('fictConductor')) FICT_DL[r.size] = {value: r.value, ref: `fictConductor:${r.id}`};
+  for (const r of rows('layupFactor')) LAYUP[r.cores] = {value: r.value, ref: `layupFactor:${r.id}`};
+  for (const r of rows('fictInnerCover')) FICT_IN[r.id] = {value: r.value, ref: `fictInnerCover:${r.id}`};
+  FICT_SCR = rows('fictScreen').map(r => ({max: r.maxArea, value: r.value, ref: `fictScreen:${r.id}`})).sort((a, b) => a.max - b.max);
+  for (const r of rows('sheathTemp')) SHEATH_T[r.id] = {value: r.value, ref: `sheathTemp:${r.id}`};
   return true;
 }
 // 구간표에서 하부 직경 D에 해당하는 행 {max, value, ref}
@@ -2135,12 +2145,16 @@ function conductorInfo(S){
   const Adraw = regs.reduce((s, r) => s + r.area, 0);
   const one = cores === 1 && regs.length >= 3 && parents.size === 1;
   const stranded = one && regs.every(r => r.outer.kind === 'circle' && !r.holes.length);
+  // 설계 공정으로 만든 모델: 소선 수 · 지름 · 피치를 공정 값으로 씀 (압축 도체는 외곽 원 하나로 그림)
+  const sp = cores === 1 && !stranded && model.spec ? specConductor(model.spec) : null;
+  const Aspec = sp && sp.n && sp.d ? sp.n * Math.PI / 4 * sp.d * sp.d : 0;
   // 소선을 그리지 않은 도체는 외곽 면적에 점적률(가정)을 곱해 금속 단면적으로 봄
-  const fill = stranded || S.cond === 'solid' ? 1 : S.fill;
+  const fill = stranded || S.cond === 'solid' ? 1 : Aspec ? Aspec / (Adraw * model.unit * model.unit) : S.fill;
   const A = Adraw * fill;
   const par = one ? [...parents][0] : null, pc = par ? asCircle(par) : null;
   const mat = MAT[conds[0].mat];
-  const info = {cores, A, Adraw, fillUsed: fill, Acore: A / cores, stranded, segment: one && !stranded, sector: cores >= 2 && regs.every(r => !asCircle(r.outer)), nWires: stranded ? regs.length : 0, rho: mat.rho || null, dens: mat.dens, kLay: 1};
+  const info = {cores, A, Adraw, fillUsed: fill, Acore: A / cores, stranded, segment: one && !stranded && !sp, sector: cores >= 2 && regs.every(r => !asCircle(r.outer)),
+    nWires: stranded ? regs.length : sp ? sp.n : 0, spec: Aspec ? sp : null, rho: mat.rho || null, dens: mat.dens, kLay: 1};
   if (stranded){
     const cen = pc ? [pc.cx, pc.cy] : model.center;
     const ds = regs.map(r => ({r: Math.hypot(r.outer.cx - cen[0], r.outer.cy - cen[1]), d: 2 * r.outer.r, a: r.area})).sort((a, b) => a.r - b.r);
@@ -2152,7 +2166,7 @@ function conductorInfo(S){
       return {n, d, a, center, Do, lay, k: center ? 1 : Math.sqrt(1 + Math.pow(Math.PI * Dm / lay, 2))};
     });
     info.kbar = A / info.layers.reduce((s, L) => s + L.a / L.k, 0);
-  } else info.kbar = S.cond === 'solid' ? 1 : S.kAssumed;
+  } else info.kbar = S.cond === 'solid' ? 1 : info.spec ? specK(info.spec, S.kAssumed).k : S.kAssumed;
   info.Aeff = info.Acore / info.kbar;
   if (cores >= 2){
     const cs = insRegs.map(r => asCircle(r.outer)).filter(Boolean), cen = model.center;
@@ -2206,11 +2220,68 @@ function iecAuto(m){
   const ci = conductorInfo(S);
   if (ci){ S.cond = ci.stranded ? 'round' : ci.segment ? 'segment' : ci.sector ? 'sector' : 'compact'; S.fill = FILL_DEFAULT[S.cond]; }
   S.condWhy = !ci ? '' : ci.stranded ? `도체: 소선 ${ci.nWires}가닥` : ci.segment ? '도체: 분할 도체' : ci.sector ? '도체: 부채꼴 단면 → 선형 압축' : '도체: 소선 미표현 → 압축 연선 가정';
+  const sp = ci && ci.spec;
+  if (sp){
+    S.cond = sp.compact ? 'compact' : 'round'; S.fill = FILL_DEFAULT[S.cond];
+    if (sp.pitch && sp.od) S.lay.cond = +(sp.pitch / sp.od).toFixed(3);
+    if (sp.dir) S.lay.dir = sp.dir;
+    S.condWhy = `도체: 설계 공정 ${sp.compact ? '압축연선' : '연선'} ${sp.n}가닥`;
+  }
   const sz = text.match(/(\d+(?:\.\d+)?)\s*(?:sq|㎟|mm2|mm²)(?![a-z])/i);
   if (sz){ S.size = +sz[1]; S.sizeWhy = `단면적: 도면 표기 ${sz[0]}`; }
   else if (ci){ const A = ci.Acore * m.unit * m.unit; S.size = IEC_SIZES.reduce((b, s) => Math.abs(s - A) < Math.abs(b - A) ? s : b); S.sizeWhy = `단면적: 도면 면적 ${fmt(A, 1)} mm²로 추정`; }
   else S.size = 0;
   return S;
+}
+
+// 부속서 B 수치맺음: 소수 둘째 자리에서 반올림해 0.1 mm 단위로
+const r01 = v => Math.round(v * 10 + 1e-6) / 10;
+// IEC 60502-1 부속서 A: 시스 · 내부 피복 · 외장 두께를 정하는 가상 직경 (도면 실측이 아닌 공칭값으로 계산)
+//   dL(표 A.1) → Dc = dL + 2ti → Df = k·Dc(표 A.2) → 내부 피복 · 동심 도체 · 외장을 차례로 더함. 단계마다 0.1 mm 수치맺음
+//   계산할 수 없는 층(금속 시스 · 테이프 차폐 등)이 있으면 {why}만 돌려주고 판정은 도면 실측 직경을 씀
+function fictitious(m, S, ci, ti, wires, outer){
+  const u = m.unit, steps = [], refs = [ti.ref];
+  if (!S.size) return {why: '공칭 단면적 없음'};
+  const dRow = FICT_DL[S.size];
+  const dL = dRow ? dRow.value : r01(Math.sqrt(4 * S.size / Math.PI));
+  if (dRow) refs.push(dRow.ref);
+  steps.push(['dL', dL, dRow ? '표 A.1' : `표 A.1에 없는 단면적 → √(4S/π) (표 A.1과 같은 식)`]);
+  let D = r01(dL + 2 * ti.value);
+  steps.push(['Dc', D, `dL + 2 × 절연 공칭 ${fmt(ti.value, 1)}`]);
+  if (ci.cores >= 2){
+    const k = LAYUP[ci.cores];
+    if (!k) return {why: `${ci.cores}심 연합계수 (표 A.2) 없음`};
+    D = r01(k.value * D); refs.push(k.ref); steps.push(['Df', D, `연합계수 ${k.value} × Dc`]);
+  }
+  const out = {Df: D, DA: null};
+  const insR = Math.max(...m.groups.filter(g => g.comp === 'insulation').map(g => g.rMax));
+  const IGNORE = ['filler', 'binder', 'fire', 'wbtape', 'wbcomp', 'void', 'graphite'];       // 표 A에 더하지 않는 층
+  for (const g of m.groups.filter(g => g.rMax > insR * 1.0001 && !outer.includes(g))){
+    if (IGNORE.includes(g.comp)) continue;
+    const w = wires.find(x => x.g === g);
+    if (g.comp === 'bedding'){
+      const r = D <= 40 ? FICT_IN.small : FICT_IN.large;
+      if (!r) return {why: '내부 피복 가상 두께 없음'};
+      D = r01(D + 2 * r.value); refs.push(r.ref); steps.push(['DB', D, `+ 2 × ${r.value} (내부 피복)`]);
+    } else if ((g.comp === 'neutral' || g.comp === 'mscreen') && w){
+      const A = w.A * u * u, row = FICT_SCR.find(r => A <= r.max + 1e-9);
+      if (!row) return {why: `${nameOf(g)} ${fmt(A, 1)} mm² — 표 A.3 범위 밖`};
+      D = r01(D + row.value); refs.push(row.ref); steps.push(['D', D, `+ ${row.value} (${nameOf(g)} ${fmt(A, 1)} mm², 표 A.3)`]);
+    } else if (g.comp === 'armour' && (w || formOf(g).kind === 'tape')){
+      if (out.DA == null) out.DA = D;
+      const row = lookup(w ? T_ARM_WIRE : T_ARM_TAPE, D);
+      D = r01(D + (w ? 2 : 4) * row.value); refs.push(row.ref);
+      steps.push(['DX', D, w ? `+ 2 × 외장선 ${row.value}` : `+ 4 × 외장 테이프 ${row.value}`]);
+    } else return {why: `${nameOf(g)}: 가상 계산 미지원`};
+  }
+  if (out.DA == null) out.DA = D;
+  return Object.assign(out, {D, steps, refs});
+}
+// 비표준 단면적일 때 표의 앞뒤 표준 단면적 값 (참고 표시용)
+function neighbors(table, size, pick){
+  const ks = Object.keys(table).map(Number).filter(k => pick(table[k]) != null).sort((a, b) => a - b);
+  const lo = ks.filter(k => k < size).pop(), hi = ks.find(k => k > size);
+  return [lo, hi].filter(k => k != null).map(k => [k, pick(table[k])]);
 }
 
 function evaluate(){
@@ -2233,9 +2304,10 @@ function evaluate(){
     const sec = '도체 · IEC 60228';
     if (!conds.length) add(sec, {title:'도체', status:'fail', say:'도체 층 없음', fix:'레이어 이름에 conductor · 도체 지정'});
     else {
-      const gids = conds.map(g => g.id), mats = [...new Set(conds.map(g => g.mat))], okMat = mats.every(x => x === 'CU' || x === 'AL');
+      // 5절: 연동 · 금속 도금 연동 · 알루미늄 (합금 포함)
+      const gids = conds.map(g => g.id), mats = [...new Set(conds.map(g => g.mat))], okMat = mats.every(x => x === 'CU' || x === 'TCU' || x === 'AL');
       const matTxt = mats.map(x => MAT[x].ko).join(', ');
-      add(sec, {title:'도체 재질', gids, status: okMat ? 'pass' : 'fail', val:[['도면', matTxt], ['허용', '연동 · 알루미늄']],
+      add(sec, {title:'도체 재질', gids, status: okMat ? 'pass' : 'fail', val:[['도면', matTxt], ['허용', '연동 · 도금 연동 · 알루미늄']],
         say:`도체 재질 ${matTxt} — 허용 재질 아님`, fix:'연동 또는 알루미늄으로 변경'});
       const minS = cls.min ? cls.min.value : 0, small = size < minS, sz = fmt(size, size < 10 ? 1 : 0);
       add(sec, {title:'공칭 단면적', gids, status: small ? 'fail' : std ? 'pass' : 'warn', refs: cls.min ? [cls.min.ref] : [],
@@ -2243,25 +2315,35 @@ function evaluate(){
         say: small ? `도체 ${sz} mm² — ${S.cls} kV 최소 ${minS} mm² 미달` : `도체 ${sz} mm² — IEC 표준 단면적 아님`,
         fix: small ? `${minS} mm² 이상으로 변경` : '표준 단면적 선정 또는 발주처 협의',
         note: std ? '' : 'IEC 60228 표준 단면적 아님 → 저항 기준 적용 불가'});
+      const sp = ci.spec;
       add(sec, {title:'도체 금속 단면적', gids, status:'info',
         val:[...(ci.fillUsed < 1 ? [['도면 외곽', fmt(ci.Adraw / ci.cores * u * u, 1) + ' mm²']] : []), ['1심 금속', fmt(ci.Acore * u * u, 1) + ' mm²'], ['공칭 대비', fmt(ci.Acore * u * u / size * 100, 1) + ' %']],
-        note: ci.stranded ? `소선 ${ci.nWires}가닥 합` : ci.fillUsed < 1 ? `외곽 면적 × 점적률 ${ci.fillUsed} (가정)` : '단선'});
+        note: sp ? `설계 공정: 소선 ${sp.n} × Ø${sp.dTxt} mm (신선 · 압축 전)` : ci.stranded ? `소선 ${ci.nWires}가닥 합` : ci.fillUsed < 1 ? `외곽 면적 × 점적률 ${ci.fillUsed} (가정)` : '단선'});
       const ct = S.cond === 'sector' ? 'compact' : S.cond;          // 선형 압축은 압축 연선 기준 (IEC 60228)
       const wrow = WIRES[size] && (ct === 'round' || ct === 'compact') ? WIRES[size][ct] : null;
       const need = wrow ? wrow.value : null, wrefs = wrow ? [wrow.ref] : [];
+      const src = sp ? '설계' : '도면';
       if (S.cond === 'solid') add(sec, {title:'도체 구조', gids, status:'info', val:[['구조','단선 (class 1)']]});
       else if (S.cond === 'segment') add(sec, {title:'최소 소선 수', gids, status:'info', val:[['구조','분할 도체']], note:'세그먼트 구성은 제조 사양 확인'});
-      else if (!ci.stranded) add(sec, {title:'최소 소선 수', gids, status:'warn', refs: wrefs, val: need ? [['도면','소선 미표현'], ['최소', need + ' 가닥']] : [['도면','소선 미표현']],
+      else if (!ci.nWires) add(sec, {title:'최소 소선 수', gids, status:'warn', refs: wrefs, val: need ? [['도면','소선 미표현'], ['최소', need + ' 가닥']] : [['도면','소선 미표현']],
         say:'도면에 소선 없음 — 소선 수 판정 불가', fix:'설계 사양으로 확인', note:'소선을 원으로 그리면 자동 판정'});
-      else if (!need) add(sec, {title:'최소 소선 수', gids, status:'warn', val:[['도면', ci.nWires + ' 가닥']],
-        say:`소선 ${ci.nWires}가닥 — 기준값 없음 (비표준 단면적)`, fix:'설계 사양으로 확인'});
-      else add(sec, {title:'최소 소선 수', gids, status: ci.nWires >= need ? 'pass' : 'fail', refs: wrefs, val:[['도면', ci.nWires + ' 가닥'], ['최소', need + ' 가닥']],
+      else if (!need){
+        const nb = (ct === 'round' || ct === 'compact') ? neighbors(WIRES, size, w => w[ct] && w[ct].value) : [];
+        add(sec, {title:'최소 소선 수', gids, status:'warn', val:[[src, ci.nWires + ' 가닥']],
+          say:`소선 ${ci.nWires}가닥 — 기준값 없음 (비표준 단면적)`, fix:'설계 사양으로 확인',
+          note: nb.length ? `참고: ${nb.map(([k, v]) => `${k} mm² ${v}가닥`).join(' · ')} (IEC 60228 ${ct === 'compact' ? '압축' : '비압축'})` : ''});
+      }
+      else add(sec, {title:'최소 소선 수', gids, status: ci.nWires >= need ? 'pass' : 'fail', refs: wrefs, val:[[src, ci.nWires + ' 가닥'], ['최소', need + ' 가닥']],
         say:`소선 ${ci.nWires}가닥 — 최소 ${need}가닥 미달`, fix:`${need}가닥 이상으로 구성`, note: S.cond === 'round' ? '원형 비압축 연선' : S.cond === 'sector' ? '선형 압축 연선' : '원형 압축 연선'});
-      const lrow = R60228[size] && R60228[size][mats[0] === 'AL' ? 'AL' : 'CU'], lim = lrow ? lrow.value : null;
+      const lrow = R60228[size] && R60228[size][mats[0] === 'AL' ? 'AL' : 'CU'], lim = mats[0] === 'TCU' ? null : lrow ? lrow.value : null;
       if (okMat && ci.Rcable){
         const base = [['계산', fmtR(ci.Rcable) + ' Ω/km']];
         const note = `연입률 반영 (k̄ ${ci.kbar.toFixed(4)}${ci.cores >= 2 ? ` · 연합 ${ci.kLay.toFixed(4)}` : ''})`;
-        if (!lim) add(sec, {title:'최대 도체저항 (20 °C)', gids, status:'warn', val: base, note,
+        const nb = neighbors(R60228, size, r => r[mats[0] === 'AL' ? 'AL' : 'CU'] && r[mats[0] === 'AL' ? 'AL' : 'CU'].value);
+        if (mats[0] === 'TCU') add(sec, {title:'최대 도체저항 (20 °C)', gids, status:'warn', val: base, note,
+          say:'도금 연동 — 도금 동선 저항 기준값 미내장', fix:'IEC 60228 도금 동선 표로 확인'});
+        else if (!lim) add(sec, {title:'최대 도체저항 (20 °C)', gids, status:'warn', val: base,
+          note: note + (nb.length ? ` · 참고: ${nb.map(([k, v]) => `${k} mm² ${fmtR(v)}`).join(' · ')} Ω/km` : ''),
           say:`도체 저항 ${fmtR(ci.Rcable)} Ω/km — 기준값 없음 (비표준 단면적)`, fix:'발주처 요구값으로 확인'});
         else add(sec, {title:'최대 도체저항 (20 °C)', gids, status: ci.Rcable <= lim ? 'pass' : 'fail', refs:[lrow.ref], val:[...base, ['최대', fmtR(lim) + ' Ω/km']], note,
           say:`도체 저항 ${fmtR(ci.Rcable)} Ω/km — 허용 ${fmtR(lim)} 초과`, fix:`금속 단면적 +${fmt((ci.Rcable / lim - 1) * 100, 1)} % 이상`});
@@ -2284,20 +2366,22 @@ function evaluate(){
       add(sec2, {title:'절연 재질' + lab, gids, status: matOk ? 'pass' : 'fail', val:[['도면', MAT[mat].ko]],
         say:`절연 재질 ${MAT[mat].ko} — 허용 재질 아님`, fix: cls.lv ? 'PVC · XLPE · EPR로 변경' : 'XLPE · EPR로 변경'});
       if (!T.length){ add(sec2, {title:'절연 두께' + lab, gids, status:'warn', say:'절연 두께 계산 불가 (원형 아님)', fix:'도면 확인'}); continue; }
-      const avg = Math.min(...T.map(t => t.avg)) * u, tmin = Math.min(...T.map(t => t.min)) * u;
+      const dts = gs.map(designT), byDesign = dts.every(t => t != null);
+      const avg = byDesign ? Math.min(...dts) : Math.min(...T.map(t => t.avg)) * u, tmin = byDesign ? avg : Math.min(...T.map(t => t.min)) * u;
+      const [lAvg, lMin] = byDesign ? ['설계', '설계'] : ['도면 평균', '도면 최소'];
       const tnRow = cls.lv ? lvThickness(mat, S.cls, size) : (mat === 'XLPE' || mat === 'EPR') ? cls.t : null;
       const tn = tnRow ? tnRow.value : null;
       if (tn == null){
         add(sec2, {title:'절연 공칭 두께' + lab, gids, status:'warn', val:[['도면', mm(avg)]],
-          say:`절연 ${mm(avg)} — 기준값 없음`, fix:'규격 원문 · 발주처 사양으로 확인', note: mat === 'EPR' && cls.lv ? 'EPR 저압 두께 표 미내장' : '해당 조건 표 값 없음'});
+          say:`절연 ${mm(avg)} — 기준값 없음`, fix:'규격 원문 · 발주처 사양으로 확인', note: '해당 조건 표 값 없음'});
         continue;
       }
       add(sec2, {title:'절연 공칭 두께' + lab, gids, status: ge(avg, tn) ? 'pass' : 'fail', refs:[tnRow.ref],
-        val:[['도면 평균', mm(avg)], ['기준', '≥ ' + mm(tn, 1)]],
+        val:[[lAvg, mm(avg)], ['기준', '≥ ' + mm(tn, 1)]],
         say:`절연 두께 ${mm(avg)} — 기준 ${mm(tn, 1)} (−${mm(tn - avg)})`, fix:`절연 +${mm(tn - avg)} 또는 적용 등급 재검토`,
-        note: cls.lv ? `${cls.std} 표 · ${MAT[mat].ko} · ${fmt(size, 0)} mm²` : `${cls.std} 표 · ${S.cls} kV`});
+        note: cls.lv ? `${cls.std} ${{PVC: '표 5', XLPE: '표 6', EPR: '표 7'}[mat] || '표'} · ${MAT[mat].ko} · ${fmt(size, 0)} mm²${std ? '' : ` (비표준 → ${tnRow.max} mm² 이하 구간 값)`}` : `${cls.std} 표 · ${S.cls} kV`});
       const IM = RULE.insulationMin, tl = IM.factor * tn - IM.minus;
-      add(sec2, {title:'절연 최소 두께' + lab, gids, status: ge(tmin, tl) ? 'pass' : 'fail', refs:[tnRow.ref, ...IM.refs], val:[['도면 최소', mm(tmin)], ['기준', '≥ ' + mm(tl)]],
+      add(sec2, {title:'절연 최소 두께' + lab, gids, status: ge(tmin, tl) ? 'pass' : 'fail', refs:[tnRow.ref, ...IM.refs], val:[[lMin, mm(tmin)], ['기준', '≥ ' + mm(tl)]],
         note:`공칭 × ${IM.factor} − ${IM.minus} mm`, say:`절연 최소 두께 ${mm(tmin)} — 기준 ${mm(tl)} 미달`, fix:`최소 두께 +${mm(tl - tmin)} (편심 포함)`});
     }
 
@@ -2321,13 +2405,28 @@ function evaluate(){
     for (const w of wires){
       if (w.g.comp === 'armour') continue;
       const ga = w.gapAvg * u, gm = w.gapMax * u, WG = RULE.wireGap;
-      add(sec4, {title:`${nameOf(w.g)} 선 간격`, gids:[w.g.id], status: ga <= WG.avg + 5e-3 && gm <= WG.max + 5e-3 ? 'pass' : 'fail', refs: WG.refs,
-        val:[['평균', mm(ga)], ['최대', mm(gm)], ['기준', `평균 ≤ ${WG.avg} · 개별 ≤ ${WG.max} mm`]],
-        note:`선 경사각 ${fmt(w.alpha, 1)}° 반영, 선 직각 방향`, say:`${nameOf(w.g)} 간격 평균 ${mm(ga)} · 최대 ${mm(gm)} — 기준 초과`, fix:'선 수 증가 또는 선 지름 확대'});
+      // 저압(IEC 60502-1 9.2 · 10.2)은 간격을 국가 규정에 맡김 → 고압 기준값은 참고로만 표시
+      add(sec4, {title:`${nameOf(w.g)} 선 간격`, gids:[w.g.id], status: cls.lv ? 'info' : ga <= WG.avg + 5e-3 && gm <= WG.max + 5e-3 ? 'pass' : 'fail', refs: WG.refs,
+        val:[['평균', mm(ga)], ['최대', mm(gm)], [cls.lv ? '참고' : '기준', `평균 ≤ ${WG.avg} · 개별 ≤ ${WG.max} mm`]],
+        note:`선 경사각 ${fmt(w.alpha, 1)}° 반영, 선 직각 방향` + (cls.lv ? ' · 저압은 국가 규정 (IEC 60502-1 10.2)' : ''),
+        say:`${nameOf(w.g)} 간격 평균 ${mm(ga)} · 최대 ${mm(gm)} — 기준 초과`, fix:'선 수 증가 또는 선 지름 확대'});
       add(sec4, {title:`${nameOf(w.g)} 단면적 · 저항`, gids:[w.g.id], status:'info',
         val:[['단면적', fmt(w.A * u * u, 1) + ' mm²'], ...(w.R ? [['20 °C', fmtR(w.R) + ' Ω/km']] : [])],
         note:'요구 단면적은 고장전류로 결정 (발주처 지정)'});
     }
+
+    /* --- 가상 직경 (저압: IEC 60502-1 부속서 A) — 내부 피복 · 외장 · 시스 두께 표는 도면 실측이 아닌 이 값으로 찾는다 --- */
+    const shs = G('sheath').sort((a, b) => b.rMax - a.rMax), sh = shs[0];
+    // 여러 층으로 압출한 외부 시스 (예: PVC 2층)는 바깥에서부터 붙어 있는 시스 층을 묶어 한 시스로 본다
+    const stack = sh ? [sh] : [];
+    for (let rg = sh && sh.regions[0]; rg; ){
+      const under = rg.holes.map(h => h.region).find(r => r && r.group && r.group.comp === 'sheath' && !stack.includes(r.group));
+      if (!under) break;
+      stack.push(under.group); rg = under;
+    }
+    const tiRow = cls.lv && insul.length ? lvThickness(insul[0].mat, S.cls, size) : null;
+    const F = cls.lv && ci && tiRow ? fictitious(m, S, ci, tiRow, wires, stack) : null;
+    const useF = !!(F && F.D);
 
     /* --- 코어 집합 · 내부 피복 · 외장 --- */
     const arm = G('armour'), bed = G('bedding');
@@ -2337,47 +2436,71 @@ function evaluate(){
         val:[['개재물', G('filler').length ? '있음' : '없음'], ['바인더', G('binder').length ? '있음' : '없음'], ['내부 피복', bed.length ? '있음' : '없음']]});
       for (const g of bed){
         const T = ringT(g.regions[0]); if (!T) continue;
-        const D = T.dfar * u, row = lookup(T_BED, D); if (!row) continue;
+        const D = useF ? F.Df : T.dfar * u, row = lookup(T_BED, D); if (!row) continue;
         const tn = row.value;
         add(sec5, {title:'내부 피복 두께', gids:[g.id], status: ge(T.avg * u, tn) ? 'pass' : 'fail', refs:[row.ref], val:[['도면', mm(T.avg * u)], ['기준', '≥ ' + mm(tn, 1)]],
-          note:`하부 직경 ${fmt(D, 1)} mm (도면 실측)`, say:`내부 피복 ${mm(T.avg * u)} — 기준 ${mm(tn, 1)} 미달`, fix:`+${mm(tn - T.avg * u)}`});
+          note:`하부 직경 ${fmt(D, 1)} mm (${useF ? '가상 연합 직경 · 부속서 A' : '도면 실측'})`, say:`내부 피복 ${mm(T.avg * u)} — 기준 ${mm(tn, 1)} 미달`, fix:`+${mm(tn - T.avg * u)}`});
       }
       if (arm.length && ci && ci.cores >= 2 && !bed.length) add(sec5, {title:'외장 아래 내부 피복', gids: arm.map(g => g.id), status:'fail', verify:'unverified',
         say:'외장 아래 내부 피복 없음', fix:'내부 피복 추가'});
       for (const g of arm){
         const w = wires.find(x => x.g === g);
         if (w){
-          const D = (2 * w.rm - w.d) * u, row = lookup(T_ARM_WIRE, D); if (!row) continue;
+          const D = useF ? F.DA : (2 * w.rm - w.d) * u, row = lookup(T_ARM_WIRE, D); if (!row) continue;
           const dn = row.value;
           add(sec5, {title:'외장선 지름', gids:[g.id], status: ge(w.d * u, dn) ? 'pass' : 'fail', refs:[row.ref], val:[['도면', mm(w.d * u)], ['기준', '≥ ' + mm(dn)]],
-            note:`하부 직경 ${fmt(D, 1)} mm`, say:`외장선 Ø${fmt(w.d * u, 2)} mm — 기준 Ø${fmt(dn, 2)} 미달`, fix:`Ø${fmt(dn, 2)} mm 이상`});
+            note:`하부 직경 ${fmt(D, 1)} mm (${useF ? '가상 직경 · 부속서 A' : '도면 실측'})`, say:`외장선 Ø${fmt(w.d * u, 2)} mm — 기준 Ø${fmt(dn, 2)} 미달`, fix:`Ø${fmt(dn, 2)} mm 이상`});
         } else {
           const T = ringT(g.regions[0]); if (!T) continue;
-          const D = T.dfar * u, row = lookup(T_ARM_TAPE, D); if (!row) continue;
+          const D = useF ? F.DA : T.dfar * u, row = lookup(T_ARM_TAPE, D); if (!row) continue;
           const tn = row.value, t1 = T.avg * u / 2;
           add(sec5, {title:'외장 강대 두께', gids:[g.id], status: ge(t1, tn) ? 'pass' : 'fail', refs:[row.ref], val:[['1장', mm(t1)], ['기준', '≥ ' + mm(tn, 1)]],
-            note:`2장 겹감기 가정 · 하부 직경 ${fmt(D, 1)} mm`, say:`강대 1장 ${mm(t1)} — 기준 ${mm(tn, 1)} 미달`, fix:`${fmt(tn, 1)} mm 이상`});
+            note:`2장 겹감기 가정 · 하부 직경 ${fmt(D, 1)} mm (${useF ? '가상 직경 · 부속서 A' : '도면 실측'})`, say:`강대 1장 ${mm(t1)} — 기준 ${mm(tn, 1)} 미달`, fix:`${fmt(tn, 1)} mm 이상`});
         }
       }
     }
 
     /* --- 외부 시스 --- */
-    const sec6 = '외부 시스', sh = G('sheath').sort((a, b) => b.rMax - a.rMax)[0];
+    const sec6 = '외부 시스';
     if (!sh) add(sec6, {title:'외부 시스', status:'fail', say:'외부 시스 없음', fix:'레이어 이름에 sheath · 시스 지정'});
     else {
-      add(sec6, {title:'시스 재질', gids:[sh.id], status: ['PVC','PE','LSZH'].includes(sh.mat) ? 'pass' : 'warn',
-        val:[['도면', MAT[sh.mat].ko]], note:'PVC · PE · 할로겐 프리', say:`시스 재질 ${MAT[sh.mat].ko} — 표준 재질 아님`, fix:'재질 확인'});
-      const T = ringT(sh.regions[0]);
-      if (T){
-        const D = T.dfar * u, overMetal = underlying(sh.regions[0]).some(g => ['neutral','mscreen','armour','metalsheath'].includes(g.comp));
+      const sg = stack.map(g => g.id), inner = stack[stack.length - 1], nl = stack.length > 1 ? ` (${stack.length}층 합산)` : '';
+      const mats = [...new Set(stack.map(g => g.mat))], matTxt = mats.map(x => MAT[x].ko).join(' · ');
+      add(sec6, {title:'시스 재질', gids: sg, status: mats.every(x => ['PVC','PE','LSZH'].includes(x)) ? 'pass' : 'warn',
+        val:[['도면', matTxt]], note:'PVC · PE · 할로겐 프리', say:`시스 재질 ${matTxt} — 표준 재질 아님`, fix:'재질 확인'});
+      // 표 4: 시스 혼합물마다 견디는 최고 도체 온도 — 절연의 상시 최고 온도 이상이어야 함 (4.3 · 13.2)
+      const im = insul[0] && insul[0].mat, tIns = im && TEMP[`${im}|normal`];
+      if (cls.lv && tIns && Object.keys(SHEATH_T).length){
+        const text = stack.flatMap(g => [...g.layers, ...g.labels, ...(g.steps || []).map(s => s.mat || '')]).join(' ');
+        const code = (text.match(/\b(ST ?[1-8]|SE ?1)\b/i) || [])[0];
+        const cand = code ? [code.toUpperCase().replace(' ', '')] : {PVC: ['ST1', 'ST2'], PE: ['ST3', 'ST7'], LSZH: ['ST8']}[sh.mat] || [];
+        const rows = cand.map(c => [c, SHEATH_T[c]]).filter(([, r]) => r), ok = rows.filter(([, r]) => r.value >= tIns.value);
+        if (rows.length) add(sec6, {title:'시스 종류 · 최고 도체 온도', gids: sg, status: ok.length === rows.length ? 'pass' : ok.length ? 'warn' : 'fail',
+          refs:[tIns.ref, ...rows.map(([, r]) => r.ref)],
+          val:[['절연', `${SHORT[im] || MAT[im].ko} ${tIns.value} °C`], ['시스', rows.map(([c, r]) => `${c} ${r.value} °C`).join(' · ')]],
+          note: code ? `도면 표기 ${code}` : `시스 종류(ST) 표기 없음 → ${SHORT[sh.mat] || MAT[sh.mat].ko} 후보 전체 (표 4)`,
+          say: ok.length ? `시스 종류 미표기 — ${ok.map(([c]) => c).join(' · ')}(${tIns.value} °C 이상)이어야 함` : `시스 ${rows.map(([c]) => c).join(' · ')} — 절연 ${tIns.value} °C에 못 미침`,
+          fix: ok.length ? `시스 자재가 ${ok.map(([c]) => c).join(' · ')}인지 확인` : `${tIns.value} °C 이상 시스 혼합물로 변경`});
+      }
+      const Ts = stack.map(g => ringT(g.regions[0]));
+      if (Ts.every(Boolean)){
+        const dts = stack.map(designT), byDesign = dts.every(t => t != null), sum = a => a.reduce((s, t) => s + t, 0);
+        const T = byDesign ? {avg: sum(dts) / u, min: sum(dts) / u, dfar: Ts[Ts.length - 1].dfar}
+          : {avg: sum(Ts.map(t => t.avg)), min: sum(Ts.map(t => t.min)), dfar: Ts[Ts.length - 1].dfar};
+        const [lAvg, lMin] = byDesign ? ['설계', '설계'] : ['도면 평균', '도면 최소'];
+        const overMetal = underlying(inner.regions[0]).some(g => ['neutral','mscreen','armour','metalsheath'].includes(g.comp));
         const SN = RULE.sheathNominal, SM = RULE.sheathMin;
-        const tcalc = Math.round((SN.a * D + SN.b) * 10) / 10, floor = (ci && ci.cores >= 2) || overMetal ? SN.floorMulti : SN.floorSingle, tn = Math.max(tcalc, floor);
-        add(sec6, {title:'시스 공칭 두께', gids:[sh.id], status: ge(T.avg * u, tn) ? 'pass' : 'fail', refs: SN.refs, val:[['도면 평균', mm(T.avg * u)], ['기준', '≥ ' + mm(tn, 1)]],
-          note:`${SN.a} D + ${SN.b} = ${fmt(tcalc, 1)} (D ${fmt(D, 1)} mm, 도면 실측) · 하한 ${floor}`,
+        const D = useF ? F.D : T.dfar * u;
+        const tcalc = r01(SN.a * D + SN.b), floor = (ci && ci.cores >= 2) || overMetal ? SN.floorMulti : SN.floorSingle, tn = Math.max(tcalc, floor);
+        if (cls.lv && F) add(sec6, {title:'가상 직경 (부속서 A)', gids: sg, status:'info', refs: F.refs || [],
+          val: useF ? F.steps.map(([k, v]) => [k, mm(v, 1)]) : [['계산', '불가']],
+          note: useF ? F.steps.map(([k, , how]) => `${k}: ${how}`).join(' · ') + ' · 단계마다 0.1 mm 수치맺음 (부속서 B)' : `${F.why} → 도면 실측 직경 사용`});
+        add(sec6, {title:'시스 공칭 두께' + nl, gids: sg, status: ge(T.avg * u, tn) ? 'pass' : 'fail', refs:[...SN.refs, ...(useF ? F.refs : [])], val:[[lAvg, mm(T.avg * u)], ['기준', '≥ ' + mm(tn, 1)]],
+          note:`${SN.a} D + ${SN.b} = ${fmt(tcalc, 1)} (D ${fmt(D, 1)} mm, ${useF ? '가상 직경' : '도면 실측'}) · 하한 ${floor}`,
           say:`시스 두께 ${mm(T.avg * u)} — 기준 ${mm(tn, 1)} (−${mm(tn - T.avg * u)})`, fix:`시스 +${mm(tn - T.avg * u)}`});
         const [kF, kM] = overMetal ? [SM.irregularFactor, SM.irregularMinus] : [SM.smoothFactor, SM.smoothMinus];
         const tl = kF * tn - kM;
-        add(sec6, {title:'시스 최소 두께', gids:[sh.id], status: ge(T.min * u, tl) ? 'pass' : 'fail', refs:[...SN.refs, ...SM.refs], val:[['도면 최소', mm(T.min * u)], ['기준', '≥ ' + mm(tl)]],
+        add(sec6, {title:'시스 최소 두께' + nl, gids: sg, status: ge(T.min * u, tl) ? 'pass' : 'fail', refs:[...SN.refs, ...SM.refs], val:[[lMin, mm(T.min * u)], ['기준', '≥ ' + mm(tl)]],
           note: `공칭 × ${kF} − ${kM} mm` + (overMetal ? ' (금속층 위)' : ''),
           say:`시스 최소 두께 ${mm(T.min * u)} — 기준 ${mm(tl)} 미달`, fix:`최소 두께 +${mm(tl - T.min * u)}`});
       }
@@ -2400,6 +2523,12 @@ function evaluate(){
         fmt(L.Do * u, 2), L.center ? '—' : fmt(L.lay * u, 0), L.k.toFixed(4)])},
       val:[['평균 k̄', ci.kbar.toFixed(4)], ['길이 증가', fmt((ci.kbar - 1) * 100, 2) + ' %']],
       note:'연피치 = 연조비 × 층 외경 · k = √(1 + (π·Dm / 연피치)²)'});
+    else if (ci.spec){
+      const sp = ci.spec, K = specK(sp, S.kAssumed);
+      add(LAY_SEC, {title:'도체 연입률 (설계 공정)', gids, status:'info',
+        val:[...(sp.pitch ? [['연피치', fmt(sp.pitch, 0) + ' mm'], ['방향', sp.dir || '—'], ['연조비', fmt(sp.pitch / sp.od, 1)]] : []), ['k', K.k.toFixed(4)]],
+        note: K.how});
+    }
     else add(LAY_SEC, {title:'도체 연입률', gids, status:'info', val:[['k', ci.kbar.toFixed(4)]],
       note: S.cond === 'solid' ? '단선: k = 1' : '소선 미표현: 가정값'});
     if (ci.cores >= 2 && ci.Dp) add(LAY_SEC, {title:'코어 연합 연입률', status:'info',
@@ -2408,7 +2537,9 @@ function evaluate(){
     add(LAY_SEC, {title:'도체 실효 단면적 · 저항', gids, status:'info',
       val:[['실효', fmt(ci.Aeff * u * u, 1) + ' mm²'], ...(ci.Rcable ? [['20 °C', fmtR(ci.Rcable) + ' Ω/km']] : [])],
       note:'실효 = Σ(소선 ÷ k) · 저항 = ρ20 × 연합 k ÷ 실효'});
-    if (ci.fill) add(LAY_SEC, {title:'도체 점적률', gids, status:'info', val:[['점적률', fmt(ci.fill * 100, 1) + ' %']],
+    if (ci.spec) add(LAY_SEC, {title:'도체 점적률 (설계 공정)', gids, status:'info', val:[['점적률', fmt(ci.fillUsed * 100, 1) + ' %']],
+      note:`소선 ${ci.spec.n} × Ø${ci.spec.dTxt} 합 ÷ 압축 외경 Ø${ci.spec.odTxt} 원 면적`});
+    else if (ci.fill) add(LAY_SEC, {title:'도체 점적률', gids, status:'info', val:[['점적률', fmt(ci.fill * 100, 1) + ' %']],
       note:'일반값: 비압축 약 75 % · 압축 약 90 %'});
     else if (ci.fillUsed < 1) add(LAY_SEC, {title:'도체 점적률 (가정)', gids, status:'info', val:[['점적률', fmt(ci.fillUsed * 100, 1) + ' %']],
       note:'일반값: 비압축 약 75 % · 압축 약 90 %'});
@@ -2448,7 +2579,18 @@ function nameOf(g){
   if (g.comp === 'conductor' && g.dot && g.count >= 6) n = '도체 소선';
   if (g.comp === 'conductor' && /milliken|segment|분할/i.test([...g.layers].join(' '))) n = '분할 도체 (밀리켄)';
   if (g.color) n += ` (${g.color.name})`;
+  // 같은 종류 층이 여러 겹이면 (예: 시스 2층) 안쪽부터 구분
+  else if (model && !g.dot && g.comp !== 'conductor'){
+    const same = model.groups.filter(x => x.comp === g.comp && !x.color && !x.dot);
+    if (same.length === 2) n += same.indexOf(g) === 0 ? ' (내층)' : ' (외층)';
+    else if (same.length > 2) n += ` (${same.indexOf(g) + 1}층)`;
+  }
   return n;
+}
+// 설계 공정의 두께 (설계표 값이 외경 차이보다 우선). 없으면 null
+function designT(g){
+  const s = g.steps && [...g.steps].reverse().find(x => stepVal(x, 't') != null);
+  return s ? +s.t : null;
 }
 // 원 또는 원에 가까운 폴리선(원호 조합 등)을 원으로 간주
 function asCircle(c){
@@ -2469,7 +2611,7 @@ function dims(g){
   if (g.dot) return {type: 'dot', d: o.r * 2 * u};
   const oc = asCircle(o), hc = r0.holes.length === 1 ? asCircle(r0.holes[0]) : null;
   if (oc && hc && Math.hypot(hc.cx - oc.cx, hc.cy - oc.cy) < oc.r * 1e-3)
-    return {type: 'ring', od: oc.r * 2 * u, id: hc.r * 2 * u, t: (oc.r - hc.r) * u};
+    return {type: 'ring', od: oc.r * 2 * u, id: hc.r * 2 * u, t: designT(g) ?? (oc.r - hc.r) * u};
   return {type: 'shape', od: (o.kind === 'circle' ? o.r * 2 : Math.max(o.bb[2] - o.bb[0], o.bb[3] - o.bb[1])) * u};
 }
 function dimLabel(g){
@@ -2576,6 +2718,10 @@ function renderInfo(){
     + `</tbody></table></div>`
     + (state.twist === 'boost' ? '<p class="ck-note" style="margin:8px 0 0">3D 꼬임 ×3 강조 표시</p>' : '')
     + `</div>`;
+  // 설계 공정 (공정명은 여기 · 보고 상세에만 표시)
+  const stepsSec = !(g.steps && g.steps.length) ? '' : `<div class="info-sec"><h3>설계 공정</h3>`
+    + g.steps.map(s => `<p class="step-h">${esc(s.proc)}</p><dl class="kv">${dl(STEP_FIELDS.slice(1).filter(([k]) => stepVal(s, k) != null)
+      .map(([k, label, unit]) => [label, stepVal(s, k) + (unit ? ' ' + unit : '')]))}</dl>`).join('') + `</div>`;
   el.innerHTML = `
     <div class="info-head">
       <p class="eyebrow">${g.no ? `No. ${g.no}` : '공극'}</p>
@@ -2587,6 +2733,7 @@ function renderInfo(){
     <div class="info-sec"><h3>치수</h3><div class="big">${big}</div><dl class="kv">${dl(kv)}</dl></div>
     ${mine.length ? `<div class="info-sec"><h3>IEC 60502</h3>${mine.map(c => ckHTML(c, true)).join('')}</div>` : ''}
     ${twistSec}
+    ${stepsSec}
     <div class="info-sec"><h3>재질 특성</h3><dl class="kv">${m.props.map(([k, v]) => `<dt>${esc(k)}</dt><dd class="txt">${esc(v)}</dd>`).join('')}</dl></div>
     ${design ? `<div class="info-sec"><h3>CAD 레이어</h3><div class="layers">${[...g.layers].map(l => `<code>${esc(l)}</code>`).join('')}${g.labels.map(l => `<code>“${esc(l)}”</code>`).join('')}</div></div>
     <div class="info-sec"><h3>분류</h3><div class="edit">
@@ -2709,6 +2856,7 @@ function renderReviewSetup(){
 
   const fields = [];
   if (ci && ci.stranded) fields.push(['lay-cond', '도체 연조비', S.lay.cond, v => S.lay.cond = v, 4, 40, 0.5]);
+  else if (ci && ci.spec){}                       // 설계 공정 모델: 소선 · 피치는 공정 값
   else if (ci && S.cond !== 'solid'){
     fields.push(['k-assumed', '도체 연입률 (가정)', S.kAssumed, v => S.kAssumed = v, 1, 1.2, 0.005]);
     fields.push(['fill-assumed', '도체 점적률 (가정)', S.fill, v => S.fill = v, 0.5, 1, 0.01]);
@@ -2717,6 +2865,7 @@ function renderReviewSetup(){
   for (const w of wireInfo(S)) fields.push([`lay-w-${w.g.id}`, `${nameOf(w.g)} 연조비`, w.lam, v => S.lay.wire[w.g.id] = v, 3, 40, 0.5]);
   const box = $('#rv-lay');
   box.innerHTML = '<p>연조비 = 연피치 ÷ 층 외경</p>'
+    + (ci && ci.spec ? `<p>도체: 설계 공정 값 (소선 ${ci.spec.n} × Ø${esc(ci.spec.dTxt)}${ci.spec.pitch ? ` · 피치 ${ci.spec.pitch} mm ${ci.spec.dir || ''}` : ''})</p>` : '')
     + `<label for="twist-mode">3D 꼬임 표시<select id="twist-mode" class="mini">${TWIST_OPTS}</select></label>`
     + fields.map(([id, label, v, , lo, hi, st]) => `<label for="${id}">${esc(label)}<input id="${id}" type="number" inputmode="decimal" min="${lo}" max="${hi}" step="${st}" value="${v}"></label>`).join('');
   $('#twist-mode').value = state.twist;
@@ -2829,7 +2978,7 @@ function newId(){
 }
 
 // DXF 문자열 → 분석된 모델 (화면에 올리지는 않음)
-function parseModel(text, name, sub){
+function parseModel(text, name, sub, spec){
   let res;
   try {
     const dxf = parseDXF(text);
@@ -2843,7 +2992,8 @@ function parseModel(text, name, sub){
   }
   if (res.error) return res;
   const prev = model;
-  model = Object.assign(res, {name, sub, text});
+  model = Object.assign(res, {name, sub, text, spec: spec || null});
+  if (spec) attachSpec(model);
   model.iec = iecAuto(model);
   const m = model; model = prev;
   return m;
@@ -2870,7 +3020,7 @@ function applyReport(m, d){
   if (d.iec){
     const S = m.iec, L = d.iec.lay || {};
     Object.assign(S, {cls: d.iec.cls, size: d.iec.size, cond: d.iec.cond, fill: d.iec.fill, kAssumed: d.iec.kAssumed});
-    S.lay = {cond: L.cond ?? S.lay.cond, core: L.core ?? S.lay.core, wire: {...(L.wire || {})}};
+    S.lay = {cond: L.cond ?? S.lay.cond, core: L.core ?? S.lay.core, wire: {...(L.wire || {})}, ...(L.dir || S.lay.dir ? {dir: L.dir || S.lay.dir} : {})};
   }
   for (const o of d.overrides || []){
     const g = m.groups.find(x => x.key === o.key);
@@ -2886,7 +3036,8 @@ function modelFromReport(d){
   const smp = d.sample && SAMPLES.find(s => s.id === d.sample);
   const text = smp ? smp.make() : d.dxf;
   if (!text) return null;
-  const m = parseModel(text, d.name || '', d.sub || '');
+  const spec = d.spec && Array.isArray(d.spec.steps) ? d.spec : smp ? smp.spec : null;
+  const m = parseModel(text, d.name || '', d.sub || '', spec);
   if (m.error) return null;
   m.sampleId = d.sample || null;
   applyReport(m, d);
@@ -2895,7 +3046,8 @@ function modelFromReport(d){
 function snapshot(m, meta){
   const S = m.iec;
   return {v: 1, id: m.publicId || null, sample: m.sampleId || null, dxf: m.sampleId ? null : m.text, name: m.name, sub: m.sub, unit: m.unit,
-    iec: {cls: S.cls, size: S.size, cond: S.cond, fill: S.fill, kAssumed: S.kAssumed, lay: {cond: S.lay.cond, core: S.lay.core, wire: {...S.lay.wire}}},
+    iec: {cls: S.cls, size: S.size, cond: S.cond, fill: S.fill, kAssumed: S.kAssumed, lay: {cond: S.lay.cond, core: S.lay.core, wire: {...S.lay.wire}, ...(S.lay.dir ? {dir: S.lay.dir} : {})}},
+    ...(m.spec ? {spec: m.spec} : {}),
     overrides: m.groups.map(g => FORM_KINDS[g.comp] ? {key: g.key, comp: g.comp, mat: g.mat, form: {...formOf(g)}} : {key: g.key, comp: g.comp, mat: g.mat}), meta};
 }
 function setView(v){
@@ -2909,14 +3061,14 @@ function setView(v){
   } else {
     if (!workModel){
       workModel = reportData ? modelFromReport(reportData) : null;
-      if (!workModel){ const s0 = SAMPLES[0]; workModel = parseModel(s0.make(), s0.label, s0.sub); workModel.sampleId = s0.id; }
+      if (!workModel){ const s0 = SAMPLES[0]; workModel = parseModel(s0.make(), s0.label, s0.sub, s0.spec); workModel.sampleId = s0.id; }
       $('#sample').value = workModel.sampleId || '';
     }
     show(workModel);
   }
 }
-function loadWork(text, name, sub, sampleId){
-  const m = parseModel(text, name, sub);
+function loadWork(text, name, sub, sampleId, spec){
+  const m = parseModel(text, name, sub, spec);
   if (m.error){ showError(m.error); return false; }
   m.sampleId = sampleId || null;
   workModel = m;
@@ -3027,6 +3179,14 @@ function checksHTML(C){
   for (const c of C){ let s = secs.find(x => x.name === c.sec); if (!s) secs.push(s = {name: c.sec === LAY_SEC ? '연입률 · 세부' : c.sec, items: [], key: c.sec}); s.items.push(c); }
   return secs.map(s => `<div class="rv-sec"><h3>${esc(s.name)}</h3>${s.items.map(c => ckHTML(c)).join('')}</div>`).join('');
 }
+// 설계 공정 표 (보고 상세): 값이 하나라도 있는 항목만 열로
+function stepsHTML(m){
+  if (!m.spec) return '';
+  const cols = STEP_FIELDS.filter(([k]) => m.spec.steps.some(s => stepVal(s, k) != null));
+  return `<div class="rv-sec"><h3>설계 공정</h3><div class="tbl-wrap"><table class="tbl"><thead><tr>${cols.map(([, l, un]) => `<th>${l}${un ? ` (${un})` : ''}</th>`).join('')}</tr></thead>`
+    + `<tbody>${m.spec.steps.map(s => `<tr>${cols.map(([k]) => `<td>${esc(stepVal(s, k) ?? '')}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`
+    + `<p class="ck-note" style="margin:8px 0 0">외경은 해당 공정까지의 총 외경</p></div>`;
+}
 function renderReport(){
   const el = $('#report');
   renderQR();
@@ -3064,7 +3224,7 @@ function renderReport(){
         <div><dt>외경</dt><dd>${fmt(m.R * 2 * u, 1)}<small>mm</small></dd></div>
         <div><dt>중량</dt><dd>${fmt(totalWeight(), 0)}<small>kg/km</small></dd></div>
         <div><dt>도체</dt><dd><em>${cond ? SHORT[cond.mat] || '' : ''}</em>${fmt(S.size, S.size < 10 ? 1 : 0)}<small>mm²</small></dd></div>
-        <div><dt>절연</dt><dd><em>${ins ? SHORT[ins.mat] || '' : ''}</em>${T ? fmt(T.avg * u, 2) : '—'}<small>mm</small></dd></div>
+        <div><dt>절연</dt><dd><em>${ins ? SHORT[ins.mat] || '' : ''}</em>${ins && designT(ins) != null ? fmt(designT(ins), 2) : T ? fmt(T.avg * u, 2) : '—'}<small>mm</small></dd></div>
       </dl>
     </section>
     ${fails.length ? `<section class="card rp-sec"><h3>조치 필요</h3>${fails.map(issue).join('')}</section>` : ''}
@@ -3075,11 +3235,11 @@ function renderReport(){
         + `<span class="d">${esc(dimLabel(g))}</span>${g.status && g.status !== 'pass' ? `<span class="st ${g.status}"></span>` : ''}</button>`).join('')}
     </section>
     <section class="card rp-sec">
-      <button type="button" class="more-btn" id="rp-more" aria-expanded="${moreOpen}">상세 판정 · 연입률</button>
-      <div class="more-body" ${moreOpen ? '' : 'hidden'}>${moreOpen ? checksHTML(C) : ''}</div>
+      <button type="button" class="more-btn" id="rp-more" aria-expanded="${moreOpen}">상세 판정 · ${m.spec ? '설계 공정 · ' : ''}연입률</button>
+      <div class="more-body" ${moreOpen ? '' : 'hidden'}>${moreOpen ? stepsHTML(m) + checksHTML(C) : ''}</div>
     </section>
     <div class="rp-foot">
-      <span>${meta.example ? '<span class="ex-tag">예제</span>' : ''}설계 확인 <b>${esc(meta.designer || '—')}</b> · Rev.${esc(meta.rev || '—')} · ${esc(meta.date || '—')}${STD ? ` · 기준값 원문 확인 ${stdStats().verified}/${stdStats().total}` : ''}</span>
+      <span>${meta.example ? '<span class="ex-tag">대표 모델</span>' : ''}설계 확인 <b>${esc(meta.designer || '—')}</b> · Rev.${esc(meta.rev || '—')} · ${esc(meta.date || '—')}${STD ? ` · 기준값 원문 확인 ${stdStats().verified}/${stdStats().total}` : ''}</span>
       ${PUBLIC ? '' : '<button type="button" class="btn sm" id="rp-cost">재료비</button>'}
     </div>`;
   el.querySelectorAll('[data-g]').forEach(b => b.onclick = () => {
@@ -3386,7 +3546,7 @@ function updateLabels(){
 }
 
 /* =====================================================================
-   9. 예제 도면 (DXF 문자열로 생성해 같은 경로로 해석)
+   9. 케이블 모델 (설계 공정 → DXF 문자열로 생성해 도면과 같은 경로로 해석)
    ===================================================================== */
 function dxfWriter(){
   const L = [];
@@ -3400,112 +3560,75 @@ function dxfWriter(){
   };
   return w;
 }
-// 22.9kV 배전용 동심중성선 수밀 케이블 (소선 61가닥 원형 도체)
-function sampleCNCV(){
-  // 소선 Ø2.60 × 61가닥 ≈ 324 mm² (층 간격 2.64 mm)
-  const w = dxfWriter(), d = 2.64, rs = 1.30;
-  w.circle('CONDUCTOR_CU', 0, 0, rs);
-  for (let k = 1; k <= 4; k++){ const n = 6 * k; for (let j = 0; j < n; j++){ const a = j / n * TAU + (k % 2 ? 0 : Math.PI / n); w.circle('CONDUCTOR_CU', k * d * Math.cos(a), k * d * Math.sin(a), rs); } }
-  w.circle('WB_COMPOUND', 0, 0, 11.90).circle('SEMICON_INNER', 0, 0, 12.70).circle('INSULATION_XLPE', 0, 0, 19.30)
-   .circle('SEMICON_OUTER', 0, 0, 20.30).circle('WB_TAPE_SEMICON', 0, 0, 20.80);
-  const nr = 0.8, rc = 20.80 + nr + 0.03;
-  for (let j = 0; j < 40; j++){ const a = j / 40 * TAU; w.circle('NEUTRAL_CU', rc * Math.cos(a), rc * Math.sin(a), nr); }
-  w.circle('WB_YARN', 0, 0, rc + nr + 0.03).circle('WB_TAPE', 0, 0, rc + nr + 0.53).circle('SHEATH_PVC', 0, 0, rc + nr + 3.73);
-  w.text('TITLE', -24, -35, 2.5, '22.9kV CNCV-W 1C 325SQ');
-  return w.done();
-}
-// 0.6/1kV 3심 저압 케이블 (한글 레이어명, 원호·벌지 폴리선 사용)
-function sampleTFR(){
-  const w = dxfWriter(), rc = 3.0, ri = 3.9, off = 4.55;
-  [['갈색', 90], ['흑색', 210], ['회색', 330]].forEach(([col, deg]) => {
-    const x = off * Math.cos(deg * D2R), y = off * Math.sin(deg * D2R);
-    w.circle('도체', x, y, rc).circle('절연체_XLPE_' + col, x, y, ri);
-  });
-  w.circle('개재물_PP', 0, 0, 8.5);
-  w.arc('바인더_테이프_PET', 0, 0, 8.62, 0, 180).arc('바인더_테이프_PET', 0, 0, 8.62, 180, 360);
-  w.lwpoly('시스_PVC', [[10.42, 0, 1], [-10.42, 0, 1]], true);
-  w.text('TITLE', -12, -15, 1.4, '0.6/1kV TFR-CV 3C 25SQ');
-  return w.done();
-}
-// 154kV 송전용 XLPE 케이블 (6분할 밀리켄 도체, 알루미늄 주름 시스)
-function sampleHV(){
-  const w = dxfWriter(), R0 = 20.8, gp = 0.6, N = 6;
-  for (let k = 0; k < N; k++){
-    const t0 = k / N * TAU, t1 = (k + 1) / N * TAU, tm = (t0 + t1) / 2;
-    const t = Math.sqrt(R0 * R0 - gp * gp / 4), h = gp / 2;
-    const A = [gp / Math.sin(Math.PI / N) / 2 * Math.cos(tm), gp / Math.sin(Math.PI / N) / 2 * Math.sin(tm)];
-    const B = [t * Math.cos(t0) - h * Math.sin(t0), t * Math.sin(t0) + h * Math.cos(t0)];
-    const Cp = [t * Math.cos(t1) + h * Math.sin(t1), t * Math.sin(t1) - h * Math.cos(t1)];
-    const phi = (t1 - t0) - 2 * Math.asin(h / R0);
-    w.lwpoly('CONDUCTOR_CU_MILLIKEN', [[A[0], A[1], 0], [B[0], B[1], Math.tan(phi / 4)], [Cp[0], Cp[1], 0]], true);
-  }
-  w.circle('CONDUCTOR_BINDER_SEMICON', 0, 0, 21.0).circle('SEMICON_INNER', 0, 0, 23.0).circle('INSULATION_XLPE', 0, 0, 40.0)
-   .circle('SEMICON_OUTER', 0, 0, 41.5).circle('WB_TAPE_SEMICON', 0, 0, 42.5);
-  // 알루미늄 주름 시스: 단면은 원 (주름은 길이 방향 → 외형 구조 '주름 (나선형)')
-  w.circle('GAP_AIR', 0, 0, 43.0).circle('SHEATH_AL_CORRUGATED', 0, 0, 47.6);
-  w.circle('JACKET_PE', 0, 0, 52.7).circle('GRAPHITE_COATING', 0, 0, 52.9);
-  w.text('TITLE', -45, -62, 4, '154kV XLPE 1C 1200SQ');
-  return w.done();
-}
-// 부채꼴(섹터) 윤곽: 칸막이 선 · 바깥 원으로 자른 영역의 등고선을 모서리 둥글게 (lev 0 도체, lev t 절연)
-function sectorPts(phi, R, s0, lev, k, n = 120){
-  const smax = (a, b) => { const h = Math.max(k - Math.abs(a - b), 0) / k; return Math.max(a, b) + h * h * k * 0.25; };
-  const q = Math.PI / 4, nU = [-Math.sin(phi + q), Math.cos(phi + q)], nL = [Math.sin(phi - q), -Math.cos(phi - q)];
-  const sdf = (x, y) => smax(smax(Math.hypot(x, y) - R, x * nU[0] + y * nU[1] + s0), x * nL[0] + y * nL[1] + s0);
-  const c0 = [0.62 * R * Math.cos(phi), 0.62 * R * Math.sin(phi)], pts = [];
-  for (let i = 0; i < n; i++){
-    const a = i / n * TAU, dx = Math.cos(a), dy = Math.sin(a);
-    let lo = 0, hi = 2 * R;
-    for (let it = 0; it < 40; it++){ const mid = (lo + hi) / 2; if (sdf(c0[0] + dx * mid, c0[1] + dy * mid) < lev) lo = mid; else hi = mid; }
-    pts.push([c0[0] + dx * lo, c0[1] + dy * lo]);
-  }
-  return pts;
-}
-// 0.6/1kV 4심 저압 케이블 (선형 압축 도체 · 마스터배치 식별 · PP끈 · 글라스 테이프 · 강대 간격감기 외장)
-function sampleLV4(){
-  const w = dxfWriter(), R = 13.25, t = 1.1, s0 = t + 0.15, k = 1.6;
-  ['갈색', '흑색', '회색', '청색'].forEach((col, i) => {
-    const phi = Math.PI / 4 + i * Math.PI / 2;
-    w.lwpoly('도체_선형압축', sectorPts(phi, R, s0, 0, k), true);
-    w.lwpoly('절연체_XLPE_' + col, sectorPts(phi, R, s0, t, k), true);
-  });
-  w.circle('개재물_PP끈', 0, 0, 14.7).circle('바인더_글라스_테이프', 0, 0, 14.9).circle('내부시스_PVC', 0, 0, 16.5)
-   .circle('외장_강대_간격감기', 0, 0, 17.5).circle('시스_PVC', 0, 0, 19.8);
-  w.text('TITLE', -18, -25, 1.8, '0.6/1kV 4C 95SQ 선형압축 강대외장');
-  return w.done();
-}
-// 6/10kV 3심 고압 케이블 (압축 도체 · 색별 테이프 · 동테이프 차폐 · PP끈 · 인터록 외장)
-function sampleMV3(){
-  const w = dxfWriter(), rp = 10.6;
-  [['적색', 90], ['백색', 210], ['청색', 330]].forEach(([col, deg]) => {
-    const x = rp * Math.cos(deg * D2R), y = rp * Math.sin(deg * D2R);
-    w.circle('CONDUCTOR_CU_COMPACT', x, y, 4.15).circle('SEMICON_INNER', x, y, 4.75).circle('INSULATION_XLPE', x, y, 8.15)
-     .circle('SEMICON_OUTER_색별테이프_' + col, x, y, 8.95).circle('SCREEN_CU_TAPE', x, y, 9.12);
-  });
-  w.circle('개재물_PP끈', 0, 0, 19.95).circle('BINDER_TAPE_NONWOVEN', 0, 0, 20.15).circle('BEDDING_PVC', 0, 0, 21.6)
-   .circle('ARMOUR_INTERLOCK_AL', 0, 0, 24.1).circle('SHEATH_PVC', 0, 0, 26.9);
-  w.text('TITLE', -24, -32, 2.2, '6/10kV 3C 50SQ CV 동테이프차폐 인터록');
-  return w.done();
-}
-const SAMPLES = [
-  {id: 'cncv', label: '22.9kV CNCV-W 1C 325㎟', sub: '예제 · 배전용 동심중성선 케이블', make: sampleCNCV},
-  {id: 'tfr', label: '0.6/1kV TFR-CV 3C 25㎟', sub: '예제 · 3심 저압 케이블 (한글 레이어)', make: sampleTFR},
-  {id: 'hv', label: '154kV XLPE 1C 1200㎟', sub: '예제 · 밀리켄 도체 · Al 주름 시스', make: sampleHV},
-  {id: 'lv4', label: '0.6/1kV 4C 95㎟ 선형압축 · 강대', sub: '예제 · 섹터 도체 · PP끈 · 강대 간격감기', make: sampleLV4},
-  {id: 'mv3', label: '6/10kV 3C 50㎟ 동테이프 · 인터록', sub: '예제 · 색별 테이프 · 동테이프 중첩 · 인터록 외장', make: sampleMV3}
+/* --- 케이블 모델: 설계자가 준 공정 순서 그대로 적는다 ---
+   항목: 공정명 · 자재 · 색상 · 두께(mm) · 소선(개) · 외경(mm) · 중첩 · 방향 · 피치 · 단위(개) · 단면적(mm²) · 연입률 — 없는 항목은 적지 않음
+   외경 = 그 공정까지 진행한 총 외경. 공정명은 상세 정보(정보 카드 · 보고 상세)에만 보이고 3D · 구성 목록에는 안 나온다 */
+const MODELS = [
+  {id: 'tfrcv1x75', short: 'TFR-CV 1×75', label: '0.6/1kV TFR-CV 1×75㎟ (압축)', sub: '압축연선 · XLPE 절연 · PVC 스킨 시스 (안쪽 재생 · 바깥 난연)',
+    title: '0.6/1kV TFR-CV 1×75SQ (COMPACT)',
+    steps: [
+      {proc: '신선', mat: '연동', od: '2.250', unit: '19', lay: '1'},
+      {proc: '압축연선', wires: '19', od: '9.6', dir: 'S', pitch: '186'},
+      {proc: '절쉬', mat: '저압XLPE', color: 'NR', t: '1.16', od: '11.92'},
+      {proc: '절쉬(PVC 피복)', mat: 'PVC:S-01', t: '0.6', od: '13.12'},
+      {proc: '절쉬(PVC 피복)', mat: 'PVC-S43', t: '0.6', od: '14.4'}
+    ]}
 ];
-// 보고 화면에서 바로 고르는 대표 모델 5종. pub = 공개 사이트 주소 (cables/<pub>.json, QR)
-const REPS = [
-  {id: 'cncv', pub: 'rep229kv', short: '22.9kV 배전'},
-  {id: 'hv', pub: 'rep154kv', short: '154kV 송전'},
-  {id: 'mv3', pub: 'rep6kv3c', short: '6/10kV 고압'},
-  {id: 'tfr', pub: 'rep1kv3c', short: '0.6/1kV 저압'},
-  {id: 'lv4', pub: 'rep1kv4c', short: '0.6/1kV 외장'}
-];
+const STEP_FIELDS = [['proc','공정명',''], ['mat','자재',''], ['color','색상',''], ['t','두께','mm'], ['wires','소선','개'], ['od','외경','mm'],
+  ['ov','중첩',''], ['dir','방향',''], ['pitch','피치','mm'], ['unit','단위','개'], ['area','단면적','mm²'], ['lay','연입률','']];
+const stepVal = (s, k) => s[k] == null || s[k] === '' ? null : String(s[k]);
+const layerSafe = t => String(t || '').replace(/[<>\/\\":;?*|=`]/g, '-');
+// 공정 → 단면 층: 외경이 있는 공정마다 동심원 하나. 신선(소선) 공정은 다음 도체 공정에 붙는다
+function specLayout(spec){
+  const out = []; let pend = [];
+  spec.steps.forEach((s, i) => {
+    if (/신선/.test(s.proc) || !s.od){ pend.push(i); return; }
+    const comp = s.comp || (/연선|도체/.test(s.proc) ? 'conductor' : detect(`${s.proc} ${s.mat || ''}`, '').comp);
+    if (!comp || !COMP[comp]){ pend.push(i); return; }
+    const steps = [...pend, i]; pend = [];
+    const mat = comp === 'conductor' ? spec.steps[steps[0]].mat || s.mat : s.mat;
+    const tag = comp === 'conductor' && /압축|compact/i.test(s.proc) ? '_압축' : '';
+    out.push({comp, steps, r: +s.od / 2, layer: `${COMP[comp].ko}${tag}_${layerSafe(mat)}_P${i + 1}`});
+  });
+  return out;
+}
+function specDXF(spec){
+  const w = dxfWriter(), L = specLayout(spec);
+  for (const l of L) w.circle(l.layer, 0, 0, l.r);
+  const R = Math.max(...L.map(l => l.r));
+  w.text('TITLE', -R, -R * 1.6, Math.max(0.5, R * 0.12), spec.title);
+  return w.done();
+}
+// 해석한 구성요소마다 해당 공정을 붙인다 (정보 카드 · 보고 상세 표시용)
+function attachSpec(m){
+  const L = specLayout(m.spec);
+  for (const g of m.groups){ const l = L.find(x => g.layers.has(x.layer)); g.steps = l ? l.steps.map(i => m.spec.steps[i]) : null; }
+}
+// 도체 공정: 신선(소선 지름 · 단위) + 연선(소선 수 · 외경 · 방향 · 피치)
+function specConductor(spec){
+  const ws = spec.steps.find(s => /신선/.test(s.proc)), cs = spec.steps.find(s => /연선/.test(s.proc));
+  if (!cs || !cs.od) return null;
+  const dir = /^[sz]$/i.test(cs.dir || '') ? cs.dir.toUpperCase() : null;
+  return {n: +(cs.wires || (ws && ws.unit) || 0), d: ws && ws.od ? +ws.od : 0, dTxt: ws ? String(ws.od) : '', od: +cs.od, odTxt: String(cs.od),
+    pitch: +cs.pitch || 0, dir, compact: /압축|compact/i.test(cs.proc), k: cs.lay ? +cs.lay : null};
+}
+// 소선 수 → 층 수 (1 + 6 + 12 + … 동심 구성)
+const specLayers = n => ({7: 2, 19: 3, 37: 4, 61: 5, 91: 6})[n] || Math.max(1, Math.round((3 + Math.sqrt(Math.max(0, 12 * n - 3))) / 6));
+// 도체 연입률: 공정 값이 있으면 그대로, 없으면 피치로 바깥층 값을 계산해 전체에 적용 (안쪽 층 피치 미지정 → 저항을 보수적으로)
+function specK(sp, kAssumed){
+  if (sp.k) return {k: sp.k, how: '설계 공정 연입률'};
+  if (!sp.pitch || !sp.od) return {k: kAssumed, how: '피치 미지정 → 가정값'};
+  const nL = specLayers(sp.n), Dm = sp.od - sp.od / (2 * nL - 1);
+  return {k: Math.sqrt(1 + Math.pow(Math.PI * Dm / sp.pitch, 2)),
+    how: `바깥층 평균 지름 ${fmt(Dm, 2)} mm · 피치 ${sp.pitch} mm로 계산 (k = √(1 + (π·Dm / 피치)²)) · 안쪽 층 피치 미지정 → 바깥층 값 적용`};
+}
+const SAMPLES = MODELS.map(x => ({id: x.id, label: x.label, sub: x.sub, spec: x, make: () => specDXF(x)}));
+// 보고 화면에서 바로 고르는 대표 모델. pub = 공개 사이트 주소 (cables/<pub>.json, QR)
+const REPS = MODELS.map(x => ({id: x.id, pub: x.id, short: x.short}));
 function repReport(r){
   const s = SAMPLES.find(x => x.id === r.id);
-  return {v: 1, id: r.pub, sample: r.id, dxf: null, name: s.label, sub: '대표 모델', unit: 1, overrides: [],
-    meta: {designer: '대표 모델', rev: '—', date: '', example: true}};
+  return {v: 1, id: r.pub, sample: r.id, dxf: null, name: s.label, sub: '대표 모델', unit: 1, overrides: [], spec: s.spec,
+    meta: {designer: '—', rev: '—', date: '', example: true}};
 }
 // 보고 화면에 띄울 보고 고르기: 'pub' = 게시한 보고, 그 밖 = 대표 모델
 function selectReport(src){
@@ -3539,8 +3662,8 @@ const GUIDE = [
 async function boot(){
   window.__cableReady = true;
   const sel = $('#sample');
-  sel.innerHTML = '<option value="" disabled>예제 케이블</option>' + SAMPLES.map(s => `<option value="${s.id}">${esc(s.label)}</option>`).join('');
-  sel.onchange = () => { const s = SAMPLES.find(x => x.id === sel.value); if (s) loadWork(s.make(), s.label, s.sub, s.id); };
+  sel.innerHTML = '<option value="" disabled>케이블 모델</option>' + SAMPLES.map(s => `<option value="${s.id}">${esc(s.label)}</option>`).join('');
+  sel.onchange = () => { const s = SAMPLES.find(x => x.id === sel.value); if (s) loadWork(s.make(), s.label, s.sub, s.id, s.spec); };
   document.querySelectorAll('#viewseg [data-view]').forEach(b => b.onclick = () => { if (view !== b.dataset.view) setView(b.dataset.view); });
   $('#lblBtn').onclick = () => { labelsOn = !labelsOn; $('#lblBtn').setAttribute('aria-pressed', String(labelsOn)); };
   if (PUBLIC){ labelsOn = false; $('#lblBtn').hidden = true; }   // 휴대폰(공개) 화면: 3D 위 번호 · 이름 라벨 없음
